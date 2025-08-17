@@ -5,6 +5,9 @@ This project is a functional proof of concept and not meant to be used in a prod
 For one, the backend does not use any form of authentication yet. This project also likely does not meet the requirements of your fiscal authorities.
 This is a bare-minimum implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
 
+<img width="1175" height="953" alt="image" src="https://github.com/user-attachments/assets/87a12818-827a-45d9-a53b-acedf209df36" />
+
+
 ## Features
 
 * All-Rust solution
@@ -15,6 +18,11 @@ This is a bare-minimum implementation using modern technologies. It was born out
 * Supports running tabs
 * Change calculation
 * Sales report generation: day, month, and custom date range reports
+
+<img width="1173" height="1041" alt="image" src="https://github.com/user-attachments/assets/cfaede0c-e584-4159-a219-92be2d5e5735" />
+
+<img width="1179" height="885" alt="image" src="https://github.com/user-attachments/assets/543867ed-c69c-4dfc-85f6-7e7c9511172b" />
+
 
 ## Feature wishlist
 
