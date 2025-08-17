@@ -1,0 +1,14 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+[watch]
+watch = ["src", "style", "index.html"]
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+open = true
+
+[toolchain]
+channel = "nightly"

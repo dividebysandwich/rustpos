@@ -1,0 +1,22 @@
+[package]
+name = "pos-frontend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+leptos = { version = "0.8", features = ["csr"] }
+leptos_router = { version = "0.8" }
+leptos_meta = { version = "0.8" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+uuid = { version = "1.6", features = ["serde", "v4", "js"] }
+chrono = { version = "0.4", features = ["serde", "wasmbind"] }
+gloo-net = "0.6"
+wasm-bindgen = "0.2"
+web-sys = "0.3"
+console_error_panic_hook = "0.1"
+
+[profile.release]
+opt-level = 'z'
+lto = true
+codegen-units = 1
