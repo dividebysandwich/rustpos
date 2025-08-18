@@ -17,8 +17,10 @@ cd ..
 
 echo -e "${BLUE}Copying frontend files to backend...${NC}"
 mkdir -p rustpos/data
+cp -r backend/data/* rustpos/data
 rm -rf rustpos/static
 cp -r frontend/dist rustpos/static
+cp  backend/data/logo_site.png rustpos/static/
 echo "Frontend files copied to rustpos/static"
 
 echo -e "${BLUE}Building backend...${NC}"

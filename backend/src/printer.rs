@@ -1,5 +1,5 @@
 use glob::glob;
-use recibo::{Printer, FileDriver, Alignment};
+use recibo::{Printer, FileDriver, Alignment, GraphicSize};
 
 // Try to open a port with recibo and send a basic init.
 // Returns Ok(printer) if successful, Err otherwise.
@@ -40,7 +40,11 @@ pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid
     printer.init()?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
-    printer.text("RECEIPT\n")?;
+    printer.graphic(move |builder| {
+      builder
+        .path("data/logo_receipt.png")
+        .size(GraphicSize::Normal)
+    })?;
     printer.text("------------------------------------------------\n")?;
 
     printer.align(Alignment::Left)?;
@@ -59,7 +63,7 @@ pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid
     printer.text("------------------------------------------------\n")?;
     printer.feed(1)?;
     printer.bold(false)?;
-    printer.text(&format!("Paid: {:.2}\n", paid_amount))?;
+    printer.text(&format!("Cash: {:.2}\n", paid_amount))?;
     printer.text(&format!("Change: {:.2}\n", change))?;
     printer.feed(6)?;
     printer.cut()?;

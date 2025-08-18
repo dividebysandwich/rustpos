@@ -443,7 +443,7 @@ fn App() -> impl IntoView {
         <Router>
             <nav class="navbar">
                 <div class="nav-container">
-                    <h1>"🛒 RustPOS"</h1>
+                    <img class="sitelogo" src="/logo_site.png"/>
                     <div class="nav-links">
                         <A href="/">"Sale"</A>
                         <A href="/transactions">"Transactions"</A>
@@ -1275,7 +1275,7 @@ fn ItemsPage() -> impl IntoView {
                         <th>"Category"</th>
                         <th>"SKU"</th>
                         <th>"In Stock"</th>
-                        <th>"Actions"</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1301,7 +1301,7 @@ fn ItemsPage() -> impl IntoView {
                                     <td>{category_name}</td>
                                     <td>{item.sku.clone().unwrap_or_else(|| "-".to_string())}</td>
                                     <td>{if item.in_stock { "✓" } else { "✗" }}</td>
-                                    <td>
+                                    <td class="data-table-actions">
                                         <button 
                                             class="btn-small"
                                             on:click=move |_| start_edit(item_clone.clone())
@@ -1492,7 +1492,7 @@ fn CategoriesPage() -> impl IntoView {
                     <tr>
                         <th>"Name"</th>
                         <th>"Description"</th>
-                        <th>"Actions"</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1510,7 +1510,7 @@ fn CategoriesPage() -> impl IntoView {
                                 <tr>
                                     <td>{category.name.clone()}</td>
                                     <td>{category.description.clone().unwrap_or_else(|| "-".to_string())}</td>
-                                    <td>
+                                    <td class="data-table-actions">
                                         <button 
                                             class="btn-small"
                                             on:click=move |_| start_edit(category_clone.clone())

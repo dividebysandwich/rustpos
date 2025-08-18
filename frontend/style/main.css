@@ -20,6 +20,11 @@ body {
     color: var(--dark);
 }
 
+.sitelogo {
+    height: 2rem;
+    margin: 1rem;
+}
+
 .navbar {
     background: white;
     border-bottom: 1px solid var(--border);
@@ -352,8 +357,6 @@ button:hover {
 }
 
 .btn-small {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.875rem;
     margin: 0 0.25rem;
 }
 

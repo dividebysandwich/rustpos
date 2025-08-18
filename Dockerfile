@@ -42,8 +42,9 @@ WORKDIR /app
 COPY --from=builder /app/target/release/rustpos-backend /app/
 # Copy the static files
 COPY --from=builder /app/frontend/dist /app/static
-
+COPY --from=builder /app/backend/data/logo_site.png /app/static/
 RUN mkdir -p /app/data
+COPY --from=builder /app/backend/data/* /app/data
 
 EXPOSE 3000
 
