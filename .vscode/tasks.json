@@ -1,0 +1,66 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build-frontend",
+            "type": "shell",
+            "command": "trunk",
+            "args": ["build", "--release"],
+            "options": {
+                "cwd": "${workspaceFolder}/frontend"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "build-backend",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["build", "--release"],
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "group": "build",
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "build-all",
+            "dependsOrder": "sequence",
+            "dependsOn": ["build-frontend", "build-backend"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "dev-frontend",
+            "type": "shell",
+            "command": "trunk",
+            "args": ["serve", "--watch"],
+            "options": {
+                "cwd": "${workspaceFolder}/frontend"
+            },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "dev-backend",
+            "type": "shell",
+            "command": "cargo",
+            "args": ["run"],
+            "options": {
+                "cwd": "${workspaceFolder}/backend"
+            },
+            "isBackground": true,
+            "problemMatcher": ["$rustc"]
+        },
+        {
+            "label": "dev-full-stack",
+            "type": "shell",
+            "command": "./dev.sh",
+            "group": "build",
+            "isBackground": true,
+            "problemMatcher": []
+        }
+    ]
+}
