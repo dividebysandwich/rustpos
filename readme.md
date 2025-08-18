@@ -1,11 +1,11 @@
-# RustPOS
+<img width="577" height="100" alt="image" src="https://github.com/user-attachments/assets/25d09ab8-ef22-4f94-a378-31489c22905b" />
 
 RustPOS is a simple Point of Sale system written in Rust. It consists of a REST API backend and a web frontend using webassembly.
 This project is a functional proof of concept and not meant to be used in a production environment.
 For one, the backend does not use any form of authentication yet. This project also likely does not meet the requirements of your fiscal authorities.
 This is a bare-minimum implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
 
-<img width="1175" height="953" alt="image" src="https://github.com/user-attachments/assets/87a12818-827a-45d9-a53b-acedf209df36" />
+<img width="1181" height="926" alt="image" src="https://github.com/user-attachments/assets/47ed4d5f-25cf-4da2-951e-4404e58e518b" />
 
 
 ## Features
@@ -19,9 +19,9 @@ This is a bare-minimum implementation using modern technologies. It was born out
 * Change calculation
 * Sales report generation: day, month, and custom date range reports
 
-<img width="1173" height="1041" alt="image" src="https://github.com/user-attachments/assets/cfaede0c-e584-4159-a219-92be2d5e5735" />
+<img width="1180" height="590" alt="image" src="https://github.com/user-attachments/assets/593e7a9a-544b-419e-be8a-df64b5fdfb8f" />
 
-<img width="1179" height="885" alt="image" src="https://github.com/user-attachments/assets/543867ed-c69c-4dfc-85f6-7e7c9511172b" />
+<img width="1179" height="1064" alt="image" src="https://github.com/user-attachments/assets/839da9a7-8090-42a3-b1cd-dec99cea7302" />
 
 
 ## Feature wishlist
