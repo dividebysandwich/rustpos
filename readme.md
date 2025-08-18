@@ -20,6 +20,7 @@ This is a bare-minimum implementation using modern technologies. It was born out
 * Supports running tabs
 * Change calculation
 * Sales report generation: day, month, and custom date range reports
+* POS printer support
 
 
 <img width="1180" height="590" alt="image" src="https://github.com/user-attachments/assets/593e7a9a-544b-419e-be8a-df64b5fdfb8f" />
@@ -29,7 +30,6 @@ This is a bare-minimum implementation using modern technologies. It was born out
 
 ## Feature wishlist
 
-* POS printer support
 * Kitchen printer support
 * User roles: Admin, Sales, Reporting
 * Inventory tracking
@@ -70,6 +70,18 @@ The backend can be started via ```cargo run``` in the backend directory.
 Note: The two components are preset to expect to run on the same machine. 
 Theoretically you could separate the backend and frontend, and you could even expose them on a network. 
 However this is not recommended unless authentication and TLS are implemented.
+
+### Receipt Printer Support
+
+RustPOS will enumerate all receipt printers connected via serial port or USB, and use the first one it finds. Obviously this won't work for all setups, but for this proof of concept it should suffice.
+The printout is designed for 80mm receipt printers and have been tested using a Munbyn ITPP098 connected via USB.
+
+<img width="713" height="867" alt="image" src="https://github.com/user-attachments/assets/9334a0c5-aefa-4bfa-b5c0-d5df42c33415" />
+
+
+### Customization
+
+It is possible to change the logo used on the web UI as well as on the receipt printouts. The images can be found in ```backend/data/```
 
 # RustPOS Backend
 
