@@ -168,6 +168,12 @@ body {
     gap: 1rem;
 }
 
+.last-change-display {
+    font-size: 1.2rem;
+    color: var(--dark);
+    margin-bottom: 1rem;
+}
+
 .open-transactions-list {
     max-height: 300px;
     overflow-y: auto;

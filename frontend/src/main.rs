@@ -481,6 +481,20 @@ fn SalePage() -> impl IntoView {
     let (show_open_transactions, set_show_open_transactions) = signal(false);
     let (payment_amount, set_payment_amount) = signal(String::new());
     let (canceling_transaction, set_canceling_transaction) = signal(Option::<Uuid>::None);
+    let (last_closed_transaction, set_last_closed_transaction) = signal(Option::<Transaction>::None);
+
+    // Helper to fetch last closed transaction
+    let fetch_last_closed_transaction = move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(all_transactions) = fetch_all_transactions().await {
+                let last_closed = all_transactions
+                    .iter()
+                    .filter(|t| t.status == "closed" && t.change_amount.is_some())
+                    .max_by_key(|t| t.closed_at);
+                set_last_closed_transaction.set(last_closed.cloned());
+            }
+        });
+    };
 
     // Load initial data
     Effect::new(move || {
@@ -599,7 +613,8 @@ fn SalePage() -> impl IntoView {
         let set_change_amount = set_change_amount.clone();
         let set_current_transaction = set_current_transaction.clone();
         let set_open_transactions = set_open_transactions.clone();
-        
+        let fetch_last_closed_transaction = fetch_last_closed_transaction.clone();
+
         if let Some(trans_id) = current_trans {
             if let Ok(amount) = amount_str.parse::<f64>() {
                 leptos::task::spawn_local(async move {
@@ -612,6 +627,8 @@ fn SalePage() -> impl IntoView {
                         if let Ok(trans) = fetch_open_transactions().await {
                             set_open_transactions.set(trans);
                         }
+                        // Refresh last closed transaction
+                        fetch_last_closed_transaction();
                     }
                 });
             }
@@ -627,7 +644,8 @@ fn SalePage() -> impl IntoView {
         let set_current_transaction = set_current_transaction.clone();
         let set_transaction_items = set_transaction_items.clone();
         let set_open_transactions = set_open_transactions.clone();
-        
+        let fetch_last_closed_transaction = fetch_last_closed_transaction.clone();
+
         if let Some(trans_id) = current_trans {
             leptos::task::spawn_local(async move {
                 if cancel_transaction(trans_id).await.is_ok() {
@@ -639,6 +657,8 @@ fn SalePage() -> impl IntoView {
                     if let Ok(trans) = fetch_open_transactions().await {
                         set_open_transactions.set(trans);
                     }
+                    // Refresh last closed transaction
+                    fetch_last_closed_transaction();
                 }
             });
         }
@@ -768,6 +788,7 @@ fn SalePage() -> impl IntoView {
                                     "New Transaction"
                                 </button>
                                 
+                                // Show button to resume a transaction if any are open
                                 <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
                                     <button 
                                         class="btn-secondary"
@@ -779,7 +800,25 @@ fn SalePage() -> impl IntoView {
                                         ")"
                                     </button>
                                 </Show>
-                                
+
+                                // Show the last change amount if available
+                                <Show
+                                    when=move || last_closed_transaction.get().is_some()
+                                    fallback=|| ()
+                                >
+                                {
+                                    last_closed_transaction.get().map(|t| {
+                                        view! {
+                                            <div class="last-change-display">
+                                                <strong>"Last Change: "</strong>
+                                                {format!("{} {:.2}", CURRENCY_SYMBOL, t.change_amount.unwrap())}
+                                            </div>
+                                        }
+                                    })
+                                }
+                                </Show>
+
+                                // Display a list of all the open transactions
                                 <Show when=move || show_open_transactions.get() fallback=|| ()>
                                     <div class="open-transactions-list">
                                         <For
