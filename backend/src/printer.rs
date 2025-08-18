@@ -1,4 +1,5 @@
 use glob::glob;
+use chrono::{DateTime, Local};
 use recibo::{Printer, FileDriver, Alignment, GraphicSize};
 
 // Try to open a port with recibo and send a basic init.
@@ -36,7 +37,7 @@ pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
     Err("No ESC/POS printer found on serial ports".into())
 }
 
-pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid_amount: f32, change: f32) -> Result<(), Box<dyn std::error::Error>> {
+pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid_amount: f32, change: f32, datetime: DateTime<Local>) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
@@ -63,6 +64,7 @@ pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid
     printer.text("------------------------------------------------\n")?;
     printer.feed(1)?;
     printer.bold(false)?;
+    printer.text(&format!("Date: {}\n", datetime.format("%Y-%m-%d %H:%M:%S")))?;
     printer.text(&format!("Cash: {:.2}\n", paid_amount))?;
     printer.text(&format!("Change: {:.2}\n", change))?;
     printer.feed(6)?;

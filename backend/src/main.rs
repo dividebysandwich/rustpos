@@ -5,7 +5,7 @@ use axum::{
     routing::{delete, get, post},
     Json, Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use sqlx::{sqlite::SqlitePool, FromRow};
 use std::{net::SocketAddr, env};
@@ -54,8 +54,8 @@ struct Category {
     id: Uuid,
     name: String,
     description: Option<String>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    created_at: DateTime<Local>,
+    updated_at: DateTime<Local>,
 }
 
 // Report Models
@@ -72,8 +72,8 @@ struct ItemSalesReport {
 
 #[derive(Debug, Serialize)]
 struct SalesReport {
-    start_date: DateTime<Utc>,
-    end_date: DateTime<Utc>,
+    start_date: DateTime<Local>,
+    end_date: DateTime<Local>,
     items: Vec<ItemSalesReport>,
     summary: ReportSummary,
 }
@@ -90,8 +90,8 @@ struct ReportSummary {
 
 #[derive(Debug, Deserialize)]
 struct ReportDateRange {
-    start_date: DateTime<Utc>,
-    end_date: DateTime<Utc>,
+    start_date: DateTime<Local>,
+    end_date: DateTime<Local>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -103,8 +103,8 @@ struct Item {
     category_id: Uuid,
     sku: Option<String>,
     in_stock: bool,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    created_at: DateTime<Local>,
+    updated_at: DateTime<Local>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -115,9 +115,9 @@ struct Transaction {
     total: f64,
     paid_amount: Option<f64>,
     change_amount: Option<f64>,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
-    closed_at: Option<DateTime<Utc>>,
+    created_at: DateTime<Local>,
+    updated_at: DateTime<Local>,
+    closed_at: Option<DateTime<Local>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -128,7 +128,7 @@ struct TransactionItem {
     quantity: i32,
     unit_price: f64,
     total_price: f64,
-    created_at: DateTime<Utc>,
+    created_at: DateTime<Local>,
 }
 
 // DTOs
@@ -396,7 +396,7 @@ async fn create_category(
     Json(dto): Json<CreateCategoryDto>,
 ) -> Result<(StatusCode, Json<Category>)> {
     let id = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Local::now();
     
     let category = sqlx::query_as::<_, Category>(
         "INSERT INTO categories (id, name, description, created_at, updated_at) 
@@ -431,7 +431,7 @@ async fn update_category(
     if let Some(desc) = dto.description {
         category.description = Some(desc);
     }
-    category.updated_at = Utc::now();
+    category.updated_at = Local::now();
     
     let updated = sqlx::query_as::<_, Category>(
         "UPDATE categories SET name = ?, description = ?, updated_at = ? 
@@ -502,7 +502,7 @@ async fn create_item(
     Json(dto): Json<CreateItemDto>,
 ) -> Result<(StatusCode, Json<Item>)> {
     let id = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Local::now();
     let in_stock = dto.in_stock.unwrap_or(true);
     
     let item = sqlx::query_as::<_, Item>(
@@ -554,7 +554,7 @@ async fn update_item(
     if let Some(in_stock) = dto.in_stock {
         item.in_stock = in_stock;
     }
-    item.updated_at = Utc::now();
+    item.updated_at = Local::now();
     
     let updated = sqlx::query_as::<_, Item>(
         "UPDATE items SET name = ?, description = ?, price = ?, category_id = ?, 
@@ -643,7 +643,7 @@ async fn create_transaction(
     Json(dto): Json<CreateTransactionDto>,
 ) -> Result<(StatusCode, Json<Transaction>)> {
     let id = Uuid::new_v4();
-    let now = Utc::now();
+    let now = Local::now();
     
     let transaction = sqlx::query_as::<_, Transaction>(
         "INSERT INTO transactions (id, customer_name, status, total, created_at, updated_at) 
@@ -687,7 +687,7 @@ async fn add_transaction_item(
     
     let id = Uuid::new_v4();
     let total_price = item.price * dto.quantity as f64;
-    let now = Utc::now();
+    let now = Local::now();
     
     // Insert transaction item
     let transaction_item = sqlx::query_as::<_, TransactionItem>(
@@ -745,7 +745,7 @@ async fn update_transaction_item(
     .bind(dto.quantity)
     .bind(item.price)
     .bind(total_price)
-    .bind(Utc::now())
+    .bind(Local::now())
     .bind(transaction_id)
     .bind(item_id)
     .fetch_optional(&state.db)
@@ -807,7 +807,7 @@ async fn update_transaction(
         "UPDATE transactions SET customer_name = ?, updated_at = ? WHERE id = ? RETURNING *"
     )
     .bind(&dto.customer_name)
-    .bind(Utc::now())
+    .bind(Local::now())
     .bind(id)
     .fetch_one(&state.db)
     .await?;
@@ -833,7 +833,9 @@ async fn close_transaction(
     }
     
     let change = dto.paid_amount - transaction.total;
-    let now = Utc::now();
+    
+    // Get local time for transaction closure
+    let now = Local::now();
     
     transaction = sqlx::query_as::<_, Transaction>(
         "UPDATE transactions 
@@ -869,7 +871,7 @@ async fn close_transaction(
     // spawn_blocking runs on a dedicated thread pool
     let _ = tokio::task::spawn_blocking(move || {
         if let Ok((_, mut printer)) = find_printer() {
-            let _ = print_receipt(&mut printer, receipt_items, dto.paid_amount as f32, change as f32);
+            let _ = print_receipt(&mut printer, receipt_items, dto.paid_amount as f32, change as f32, now);
         }
     })
     .await; // JoinHandle is Send; we didn't move the printer across .await
@@ -891,7 +893,7 @@ async fn cancel_transaction(
          WHERE id = ? AND status = 'open' 
          RETURNING *"
     )
-    .bind(Utc::now())
+    .bind(Local::now())
     .bind(id)
     .fetch_optional(&state.db)
     .await?
@@ -913,7 +915,7 @@ async fn update_transaction_total(db: &SqlitePool, transaction_id: Uuid) -> Resu
          WHERE id = ?"
     )
     .bind(transaction_id)
-    .bind(Utc::now())
+    .bind(Local::now())
     .bind(transaction_id)
     .execute(db)
     .await?;
@@ -1005,7 +1007,7 @@ async fn generate_sales_report(
 }
 
 async fn get_daily_report(State(state): State<AppState>) -> Result<Json<SalesReport>> {
-    let end_date = Utc::now();
+    let end_date = Local::now();
     let start_date = end_date - chrono::Duration::days(1);
     
     generate_sales_report(
@@ -1015,7 +1017,7 @@ async fn get_daily_report(State(state): State<AppState>) -> Result<Json<SalesRep
 }
 
 async fn get_monthly_report(State(state): State<AppState>) -> Result<Json<SalesReport>> {
-    let end_date = Utc::now();
+    let end_date = Local::now();
     let start_date = end_date - chrono::Duration::days(30);
     
     generate_sales_report(
