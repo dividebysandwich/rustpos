@@ -43,8 +43,7 @@ COPY --from=builder /app/target/release/rustpos-backend /app/
 # Copy the static files
 COPY --from=builder /app/frontend/dist /app/static
 
-# Copy or create the database
-RUN touch /app/pos.db
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 

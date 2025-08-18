@@ -16,7 +16,7 @@ trunk build --release #--public-url /
 cd ..
 
 echo -e "${BLUE}Copying frontend files to backend...${NC}"
-mkdir -p rustpos
+mkdir -p rustpos/data
 rm -rf rustpos/static
 cp -r frontend/dist rustpos/static
 echo "Frontend files copied to rustpos/static"

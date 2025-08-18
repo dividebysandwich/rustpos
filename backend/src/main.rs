@@ -14,7 +14,7 @@ use uuid::Uuid;
 use tower_http::services::{ServeDir, ServeFile};
 
 mod printer;
-use printer::find_printer;
+use printer::{find_printer, print_receipt};
 
 #[derive(Debug, thiserror::Error)]
 enum AppError {
@@ -217,8 +217,19 @@ struct TransactionItemDetail {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt::init();
 
+    // Look for POS printer on any serial or USB port
+    println!("Searching for POS printer...");
+    match find_printer() {
+        Ok((path, printer)) => {
+            println!("Found printer at: {}", path);
+        }
+        Err(e) => {
+            eprintln!("Error finding printer: {}", e);
+        }
+    }
+
     // Create database connection with auto-create
-    let db = SqlitePool::connect("sqlite:pos.db?mode=rwc").await?;
+    let db = SqlitePool::connect("sqlite:data/pos.db?mode=rwc").await?;
 
     // Run migrations inline (no separate files needed)
     sqlx::query(
@@ -838,7 +849,32 @@ async fn close_transaction(
     .bind(id)
     .fetch_one(&state.db)
     .await?;
-    
+
+    if transaction.status == "closed" {
+    let items = sqlx::query_as::<_, TransactionItemDetail>(
+                     "SELECT ti.id, ti.item_id, i.name as item_name, ti.quantity, 
+                      ti.unit_price, ti.total_price 
+                      FROM transaction_items ti 
+                      JOIN items i ON ti.item_id = i.id 
+                      WHERE ti.transaction_id = ?"
+                 )
+        .bind(id)
+        .fetch_all(&state.db)
+        .await?;
+
+    let receipt_items: Vec<(String, u32, f32)> = items.into_iter()
+        .map(|it| (it.item_name, it.quantity as u32, it.unit_price as f32))
+        .collect();
+
+    // spawn_blocking runs on a dedicated thread pool
+    let _ = tokio::task::spawn_blocking(move || {
+        if let Ok((_, mut printer)) = find_printer() {
+            let _ = print_receipt(&mut printer, receipt_items, dto.paid_amount as f32, change as f32);
+        }
+    })
+    .await; // JoinHandle is Send; we didn't move the printer across .await
+    }
+
     Ok(Json(CloseTransactionResponse {
         transaction,
         change_amount: change,
