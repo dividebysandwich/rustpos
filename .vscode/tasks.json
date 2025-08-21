@@ -54,13 +54,18 @@
             "isBackground": true,
             "problemMatcher": ["$rustc"]
         },
-        {
-            "label": "dev-full-stack",
-            "type": "shell",
-            "command": "./dev.sh",
-            "group": "build",
-            "isBackground": true,
-            "problemMatcher": []
-        }
-    ]
+		{
+			"label": "dev-full-stack",
+			"type": "shell",
+			"windows": {
+				"command": "./dev.ps1"
+			},
+			"linux": {
+				"command": "./dev.sh"
+			},
+			"group": "build",
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
 }
