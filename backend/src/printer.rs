@@ -67,6 +67,10 @@ pub fn print_receipt(printer: &mut Printer, items: Vec<(String, u32, f32)>, paid
     printer.text(&format!("Date: {}\n", datetime.format("%Y-%m-%d %H:%M:%S")))?;
     printer.text(&format!("Cash: {:.2}\n", paid_amount))?;
     printer.text(&format!("Change: {:.2}\n", change))?;
+    printer.feed(1)?;
+    // QR code with receipt sum, date and time
+    printer.align(Alignment::Center)?;
+    printer.qr(|builder| builder.size(200).text(&format!("{}|Total:{}|Given:{}|Change:{}", datetime.format("%Y-%m-%d %H:%M:%S"), total, paid_amount, change)))?;
     printer.feed(6)?;
     printer.cut()?;
     Ok(())
