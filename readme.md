@@ -1,11 +1,13 @@
 <img width="577" height="100" alt="image" src="https://github.com/user-attachments/assets/25d09ab8-ef22-4f94-a378-31489c22905b" />
 
+<hr>
 
-RustPOS is a simple Point of Sale system written in Rust. It consists of a REST API backend and a web frontend using webassembly.
-This project is a functional proof of concept and not meant to be used in a production environment.
-For one, the backend does not use any form of authentication yet. This project also likely does not meet the requirements of your fiscal authorities.
-This is a bare-minimum implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
+RustPOS is a simple Point of Sale system written in Rust. It is very easy to get going, does not require any additional setup and consists of a REST API backend and a web frontend using webassembly. 
+This is a simple implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
 
+> [!NOTE]
+> This project is a functional proof of concept and not intended to be used in a production environment.
+> For example, the backend does not use any form of authentication yet. This project also likely does not meet the requirements of your fiscal authorities.
 
 <img width="1181" height="926" alt="image" src="https://github.com/user-attachments/assets/47ed4d5f-25cf-4da2-951e-4404e58e518b" />
 
