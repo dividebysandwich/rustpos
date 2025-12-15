@@ -16,6 +16,7 @@ use tower_http::services::{ServeDir, ServeFile};
 mod printer;
 use printer::{find_printer, print_receipt};
 
+#[allow(dead_code)]
 #[derive(Debug, thiserror::Error)]
 enum AppError {
     #[error("Database error: {0}")]
@@ -180,6 +181,7 @@ struct AddTransactionItemDto {
     quantity: i32,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct UpdateTransactionItemDto {
     item_id: Uuid,
@@ -220,7 +222,7 @@ async fn main() -> anyhow::Result<()> {
     // Look for POS printer on any serial or USB port
     println!("Searching for POS printer...");
     match find_printer() {
-        Ok((path, printer)) => {
+        Ok((path, _printer)) => {
             println!("Found printer at: {}", path);
         }
         Err(e) => {

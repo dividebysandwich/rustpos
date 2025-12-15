@@ -12,3 +12,6 @@ open = true
 
 [toolchain]
 channel = "nightly"
+
+[tools]
+wasm_bindgen = "0.2.106"
