@@ -37,7 +37,11 @@ This is a simple implementation using modern technologies. It was born out of my
 Cooks can access the kitchen display via the url /kitchen
 Note that there is currently no security that prevents them from accessing the POS functions. Ideally this would be added along with user accounts and roles in the future.
 
-<img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/843c433c-e978-4534-8495-ff8ac97b3877" />
+<img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/8992a079-c2d0-4de8-ad9e-ddda83e71953" />
+
+On the POS, there's a Kitchen tab that lets the cashier check the live status of every kitchen order.
+
+<img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
 
 
 ## Feature wishlist
