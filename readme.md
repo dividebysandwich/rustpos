@@ -32,6 +32,13 @@ This is a simple implementation using modern technologies. It was born out of my
 
 <img width="1179" height="1064" alt="image" src="https://github.com/user-attachments/assets/839da9a7-8090-42a3-b1cd-dec99cea7302" />
 
+## Kitchen display
+
+Cooks can access the kitchen display via the url /kitchen
+Note that there is currently no security that prevents them from accessing the POS functions. Ideally this would be added along with user accounts and roles in the future.
+
+<img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/843c433c-e978-4534-8495-ff8ac97b3877" />
+
 
 ## Feature wishlist
 
