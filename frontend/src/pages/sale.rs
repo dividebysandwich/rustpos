@@ -232,7 +232,7 @@ pub fn SalePage() -> impl IntoView {
                         </For>
                     </div>
                     <div class="items-grid">
-                        <For each=filtered_items key=|item| item.id let:item>
+                        <For each=filtered_items key=|item| (item.id, item.name.clone(), item.price.to_bits(), item.in_stock, item.image_path.clone()) let:item>
                             {
                                 let item_clone = item.clone();
                                 let has_image = item.image_path.is_some();

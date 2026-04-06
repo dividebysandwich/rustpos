@@ -1,10 +1,9 @@
 #!/bin/bash
 set -e
 
-# Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 echo -e "${BLUE}Installing tools...${NC}"
 command -v cargo-leptos >/dev/null 2>&1 || cargo install cargo-leptos
@@ -15,11 +14,8 @@ cargo leptos build --release
 
 echo -e "${BLUE}Preparing output directory...${NC}"
 mkdir -p rustpos/data
-cp -r backend/data/* rustpos/data/ 2>/dev/null || true
-cp -r target/site rustpos/site 2>/dev/null || true
-cp target/server/release/rustpos rustpos/rustpos 2>/dev/null || \
-  cp target/release/rustpos rustpos/rustpos 2>/dev/null || \
-  echo "Note: Binary location may vary. Check target/ directory."
+cp target/server/release/rustpos rustpos/rustpos
+cp -r target/site rustpos/site
 
 echo -e "${GREEN}Build complete!${NC}"
 echo -e "${GREEN}Run with: cd rustpos && ./rustpos${NC}"

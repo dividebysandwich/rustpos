@@ -73,14 +73,15 @@ pub fn ItemsPage() -> impl IntoView {
     let (in_stock, set_in_stock) = signal(true);
     let (image_preview, set_image_preview) = signal(Option::<String>::None);
 
-    let load_data = move || {
+    let (reload, set_reload) = signal(0u32);
+
+    Effect::new(move || {
+        reload.get();
         leptos::task::spawn_local(async move {
             if let Ok(items_data) = fetch_items().await { set_items.set(items_data); }
             if let Ok(cats) = fetch_categories().await { set_categories.set(cats); }
         });
-    };
-
-    Effect::new(load_data.clone());
+    });
 
     let start_edit = move |item: Item| {
         set_name.set(item.name.clone());
@@ -106,15 +107,14 @@ pub fn ItemsPage() -> impl IntoView {
                     let img_data = image_preview.get();
                     leptos::task::spawn_local(async move {
                         if let Ok(new_item) = create_item(n, d, price_val, cat_id, s, stock).await {
-                            // Upload image if one was selected
                             if let Some(data) = img_data {
                                 if data.starts_with("data:") {
                                     let _ = upload_item_image(new_item.id, data).await;
                                 }
                             }
-                            load_data();
                             set_creating_item.set(false);
                             set_image_preview.set(None);
+                            set_reload.update(|v| *v += 1);
                         }
                     });
                 } else if let Some(item) = editing {
@@ -127,7 +127,6 @@ pub fn ItemsPage() -> impl IntoView {
                     let had_image = item.image_path.is_some();
                     leptos::task::spawn_local(async move {
                         if update_item(item_id, n, d, Some(price_val), Some(cat_id), s, stock).await.is_ok() {
-                            // Handle image changes
                             match img_data.as_deref() {
                                 Some(data) if data.starts_with("data:") => {
                                     let _ = upload_item_image(item_id, data.to_string()).await;
@@ -137,9 +136,9 @@ pub fn ItemsPage() -> impl IntoView {
                                 }
                                 _ => {}
                             }
-                            load_data();
                             set_editing_item.set(None);
                             set_image_preview.set(None);
+                            set_reload.update(|v| *v += 1);
                         }
                     });
                 }
@@ -151,7 +150,7 @@ pub fn ItemsPage() -> impl IntoView {
     let delete_item_handler = move |_| {
         if let Some((id, _)) = deleting_item.get() {
             leptos::task::spawn_local(async move {
-                if delete_item(id).await.is_ok() { load_data(); set_deleting_item.set(None); }
+                if delete_item(id).await.is_ok() { set_deleting_item.set(None); set_reload.update(|v| *v += 1); }
             });
         }
     };
@@ -262,7 +261,7 @@ pub fn ItemsPage() -> impl IntoView {
             <table class="data-table">
                 <thead><tr><th>"Image"</th><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"SKU"</th><th>"In Stock"</th><th></th></tr></thead>
                 <tbody>
-                    <For each=move || items.get() key=|i| i.id let:item>
+                    <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone()) let:item>
                         {
                             let item_clone = item.clone();
                             let item_id = item.id;

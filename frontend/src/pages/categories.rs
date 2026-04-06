@@ -14,13 +14,15 @@ pub fn CategoriesPage() -> impl IntoView {
     let (name, set_name) = signal(String::new());
     let (description, set_description) = signal(String::new());
 
-    let load_categories = move || {
+    // Trigger signal: incrementing this causes the Effect to re-run
+    let (reload, set_reload) = signal(0u32);
+
+    Effect::new(move || {
+        reload.get(); // subscribe to trigger
         leptos::task::spawn_local(async move {
             if let Ok(cats) = fetch_categories().await { set_categories.set(cats); }
         });
-    };
-
-    Effect::new(load_categories.clone());
+    });
 
     let start_edit = move |category: Category| {
         set_name.set(category.name.clone());
@@ -35,14 +37,20 @@ pub fn CategoriesPage() -> impl IntoView {
             let n = name.get();
             let d = Some(description.get()).filter(|s| !s.is_empty());
             leptos::task::spawn_local(async move {
-                if create_category(n, d).await.is_ok() { load_categories(); set_creating_category.set(false); }
+                if create_category(n, d).await.is_ok() {
+                    set_creating_category.set(false);
+                    set_reload.update(|v| *v += 1);
+                }
             });
         } else if let Some(category) = editing {
             let n = Some(name.get());
             let d = Some(description.get()).filter(|s| !s.is_empty());
             let cat_id = category.id;
             leptos::task::spawn_local(async move {
-                if update_category(cat_id, n, d).await.is_ok() { load_categories(); set_editing_category.set(None); }
+                if update_category(cat_id, n, d).await.is_ok() {
+                    set_editing_category.set(None);
+                    set_reload.update(|v| *v += 1);
+                }
             });
         }
     };
@@ -51,7 +59,10 @@ pub fn CategoriesPage() -> impl IntoView {
     let delete_category_handler = move |_| {
         if let Some((id, _)) = deleting_category.get() {
             leptos::task::spawn_local(async move {
-                if delete_category(id).await.is_ok() { load_categories(); set_deleting_category.set(None); }
+                if delete_category(id).await.is_ok() {
+                    set_deleting_category.set(None);
+                    set_reload.update(|v| *v += 1);
+                }
             });
         }
     };
