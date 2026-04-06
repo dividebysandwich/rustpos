@@ -14,15 +14,18 @@ This is a simple implementation using modern technologies. It was born out of my
 
 ## Features
 
-* All-Rust solution
-* Leptos and Webassembly powered web UI, no javascript
-* Simple REST API
-* SQLite database
 * Completely configurable categories and items for sale via web UI
 * Supports running tabs
 * Change calculation
-* Sales report generation: day, month, and custom date range reports
+* Quick cash function
+* Sales report generation: day, month, and custom date range reports with CSV export
 * POS printer support
+* Kitchen display
+* Simple inventory tracking
+* Bright and Dark mode support
+* All-Rust solution
+* Leptos and Webassembly powered web UI, no javascript
+* SQLite database
 
 
 <img width="1180" height="590" alt="image" src="https://github.com/user-attachments/assets/593e7a9a-544b-419e-be8a-df64b5fdfb8f" />
@@ -32,9 +35,7 @@ This is a simple implementation using modern technologies. It was born out of my
 
 ## Feature wishlist
 
-* Kitchen printer support
 * User roles: Admin, Sales, Reporting
-* Inventory tracking
 
 ## Setup
 
