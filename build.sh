@@ -14,8 +14,8 @@ cargo leptos build --release
 
 echo -e "${BLUE}Preparing output directory...${NC}"
 mkdir -p rustpos/data
-cp target/server/release/rustpos rustpos/rustpos
-cp -r target/site rustpos/site
+cp target/release/rustpos rustpos/rustpos
+cp -r site rustpos/site
 
 echo -e "${GREEN}Build complete!${NC}"
 echo -e "${GREEN}Run with: cd rustpos && ./rustpos${NC}"

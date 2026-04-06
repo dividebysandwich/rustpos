@@ -1,3 +1,5 @@
+#![recursion_limit = "512"]
+
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
@@ -135,7 +137,9 @@ async fn main() {
     println!("Database initialized successfully!");
 
     let conf = get_configuration(None).expect("Failed to get Leptos configuration");
-    let leptos_options = conf.leptos_options;
+    let mut leptos_options = conf.leptos_options;
+    // Ensure site_root is relative to cwd so the binary is portable
+    leptos_options.site_root = "site".into();
     let routes = generate_route_list(App);
 
     let app = Router::new()
