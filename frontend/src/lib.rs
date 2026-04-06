@@ -1,4 +1,8 @@
 pub mod app;
+pub mod models;
+pub mod pages;
+pub mod server_fns;
+
 #[cfg(feature = "ssr")]
 pub mod printer;
 

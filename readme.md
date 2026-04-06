@@ -52,26 +52,17 @@ rustup target add wasm32-unknown-unknown
 
 NOTE: This is a proof of concept and not ready for production use.
 
-The build script ```build.sh``` will build frontend and backend, and copy all the neccessary files into the "rustpos" subdirectory. 
+The build script ```build.sh``` will build the application and copy all the neccessary files into the "rustpos" subdirectory. 
 You can copy that directory anywhere you want for a more permanent installation.
 
 ```
-# Build frontend and backend
+# Build application
 ./build.sh
 
 # Run application
 cd rustpos
 ./rustpos
 ```
-
-### Run Frontend and Backend separately
-
-To run the frontend, run ```trunk serve``` in the frontend directory. The web UI will be available at http://localhost:8080
-The backend can be started via ```cargo run``` in the backend directory.
-
-Note: The two components are preset to expect to run on the same machine. 
-Theoretically you could separate the backend and frontend, and you could even expose them on a network. 
-However this is not recommended unless authentication and TLS are implemented.
 
 ### Receipt Printer Support
 
@@ -83,99 +74,9 @@ The printout is designed for 80mm receipt printers and have been tested using a 
 
 ### Customization
 
-It is possible to change the logo used on the web UI as well as on the receipt printouts. The images can be found in ```backend/data/```
+It is possible to change the logo used on the web UI as well as on the receipt printouts. The images can be found in ```frontend/assets/```
 
-# RustPOS Backend
+# Persistence
 
-The backend uses sqlite to store the data and exposes a range of API functions for managing items, categories, and executing sales.
-
-## API Endpoints
-
-### Categories:
-
-```
-GET /api/categories - List all categories
-POST /api/categories - Create category
-GET /api/categories/:id - Get specific category
-PUT /api/categories/:id - Update category
-DELETE /api/categories/:id - Delete category
-```
-
-### Items:
-
-```
-GET /api/items - List all items
-POST /api/items - Create item
-GET /api/items/:id - Get specific item
-PUT /api/items/:id - Update item
-DELETE /api/items/:id - Delete item
-GET /api/items/category/:category_id - Get items by category
-```
-
-### Transactions:
-
-```
-GET /api/transactions - List all transactions
-POST /api/transactions - Start new transaction
-GET /api/transactions/:id - Get transaction details
-POST /api/transactions/:id/items - Add item to transaction
-DELETE /api/transactions/:id/items/:item_id - Remove item
-POST /api/transactions/:id/close - Close transaction (execute sale)
-POST /api/transactions/:id/cancel - Cancel transaction
-GET /api/transactions/open - Get all open transactions
-```
-
-### Sales Report Endpoint
-
-```
-POST /api/reports/sales - Generate a custom sales report for any date range
-GET /api/reports/daily - Get today's sales report
-GET /api/reports/monthly - Get the last 30 days sales report
-```
-
-## Example API calls:
-
-```
-# Create a category
-curl -X POST http://localhost:3000/api/categories \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Beverages", "description": "Hot and cold drinks"}'
-
-# Check it worked
-curl http://localhost:3000/api/categories
-
-# Create an item
-curl -X POST http://localhost:3000/api/items \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Coffee", "price": 3.50, "category_id": "..."}'
-
-# Start a transaction
-curl -X POST http://localhost:3000/api/transactions \
-  -H "Content-Type: application/json" \
-  -d '{"customer_name": "John Doe"}'
-
-# Add item to transaction
-curl -X POST http://localhost:3000/api/transactions/{id}/items \
-  -H "Content-Type: application/json" \
-  -d '{"item_id": "...", "quantity": 2}'
-
-# Close transaction
-curl -X POST http://localhost:3000/api/transactions/{id}/close \
-  -H "Content-Type: application/json" \
-  -d '{"paid_amount": 10.00}'
-
-# Generate a custom date range report
-curl -X POST http://localhost:3000/api/reports/sales \
-  -H "Content-Type: application/json" \
-  -d '{
-    "start_date": "2025-01-01T00:00:00Z",
-    "end_date": "2025-01-31T23:59:59Z"
-  }'
-
-# Get daily report (last 24 hours)
-curl http://localhost:3000/api/reports/daily
-
-# Get monthly report (last 30 days)
-curl http://localhost:3000/api/reports/monthly
-```
+The data is stored in a sqlite database under "data/"
 
