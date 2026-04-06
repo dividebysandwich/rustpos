@@ -1,33 +1,30 @@
 # Dockerfile
 FROM rust:1.89 as builder
 
-# Install trunk and wasm target
-RUN cargo install trunk
+# Install cargo-leptos and wasm target
+RUN cargo install cargo-leptos
 RUN rustup target add wasm32-unknown-unknown
 
 WORKDIR /app
 
-# Copy workspace files
+# Copy workspace and project files
 COPY Cargo.toml ./
-COPY backend/Cargo.toml backend/
 COPY frontend/Cargo.toml frontend/
-COPY frontend/Trunk.toml frontend/
-COPY frontend/index.html frontend/
+COPY frontend/style frontend/style
+COPY frontend/assets frontend/assets
 
 # Build dependencies first (for better caching)
-RUN mkdir backend/src && echo "fn main() {}" > backend/src/main.rs
-RUN mkdir frontend/src && echo "fn main() {}" > frontend/src/main.rs
-RUN cd backend && cargo build --release
-RUN cd frontend && cargo build --release --target wasm32-unknown-unknown
+RUN mkdir -p frontend/src && echo "pub mod app; #[cfg(feature=\"ssr\")] pub mod printer;" > frontend/src/lib.rs
+RUN echo "pub fn App() -> impl leptos::IntoView {}" > frontend/src/app.rs
+RUN echo "" > frontend/src/printer.rs
+RUN echo "#[cfg(feature=\"ssr\")] fn main() {} #[cfg(not(feature=\"ssr\"))] fn main() {}" > frontend/src/main.rs
+RUN cd frontend && cargo leptos build --release 2>/dev/null || true
 
 # Copy actual source code
-COPY backend/src backend/src
 COPY frontend/src frontend/src
-COPY frontend/style frontend/style
 
 # Build the actual application
-RUN cd frontend && trunk build --release
-RUN cd backend && cargo build --release
+RUN cd frontend && cargo leptos build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
@@ -38,14 +35,14 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy the built binary
-COPY --from=builder /app/target/release/rustpos-backend /app/
-# Copy the static files
-COPY --from=builder /app/frontend/dist /app/static
-COPY --from=builder /app/backend/data/logo_site.png /app/static/
+# Copy the built binary and site files
+COPY --from=builder /app/target/server/release/rustpos /app/rustpos
+COPY --from=builder /app/frontend/site /app/site
+
+# Copy data assets
 RUN mkdir -p /app/data
-COPY --from=builder /app/backend/data/* /app/data
+COPY --from=builder /app/frontend/assets/logo_receipt.png /app/data/
 
 EXPOSE 3000
 
-CMD ["./pos-backend"]
+CMD ["./rustpos"]

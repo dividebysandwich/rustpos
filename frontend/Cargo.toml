@@ -1,20 +1,65 @@
 [package]
-name = "pos-frontend"
+name = "rustpos"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-leptos = { version = "0.8.17", features = ["csr"] }
-leptos_router = { version = "0.8.13" }
-leptos_meta = { version = "0.8.6" }
+leptos = { version = "0.8.17" }
+leptos_router = "0.8.13"
+leptos_meta = "0.8.6"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-uuid = { version = "1.23.0", features = ["serde", "v4", "js"] }
-chrono = { version = "0.4.44", features = ["serde", "wasmbind"] }
-gloo-net = "0.7.0"
-wasm-bindgen = "0.2.117"
-web-sys = "0.3.94"
-console_error_panic_hook = "0.1.7"
+uuid = { version = "1.23.0", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+
+# SSR dependencies
+leptos_axum = { version = "0.8", optional = true }
+axum = { version = "0.8.8", features = ["macros"], optional = true }
+tokio = { version = "1.51.0", features = ["full"], optional = true }
+sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "uuid", "chrono"], optional = true }
+tower = { version = "0.5.3", optional = true }
+tower-http = { version = "0.6.8", features = ["fs"], optional = true }
+thiserror = { version = "2.0.18", optional = true }
+tracing = { version = "0.1.44", optional = true }
+tracing-subscriber = { version = "0.3.23", optional = true }
+glob = { version = "0.3.3", optional = true }
+recibo = { version = "0.3.0", features = ["graphics"], optional = true }
+serialport = { version = "4.9.0", optional = true }
+
+# Hydrate dependencies
+wasm-bindgen = { version = "0.2.117", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+[features]
+hydrate = [
+    "leptos/hydrate",
+    "dep:wasm-bindgen",
+    "dep:console_error_panic_hook",
+    "chrono/wasmbind",
+]
+ssr = [
+    "leptos/ssr",
+    "leptos_meta/ssr",
+    "leptos_router/ssr",
+    "leptos/nonce",
+    "dep:leptos_axum",
+    "dep:axum",
+    "dep:tokio",
+    "dep:sqlx",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:thiserror",
+    "dep:tracing",
+    "dep:tracing-subscriber",
+    "dep:glob",
+    "dep:recibo",
+    "dep:serialport",
+    "uuid/v4",
+]
+
 
 [profile.release]
 opt-level = 'z'

@@ -7,28 +7,19 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}Installing tools...${NC}"
-command -v trunk >/dev/null 2>&1 || cargo install trunk
+command -v cargo-leptos >/dev/null 2>&1 || cargo install cargo-leptos
 rustup target add wasm32-unknown-unknown
 
-echo -e "${BLUE}Building frontend...${NC}"
-cd frontend
-trunk build --release #--public-url /
-cd ..
+echo -e "${BLUE}Building with cargo-leptos...${NC}"
+cargo leptos build --release
 
-echo -e "${BLUE}Copying frontend files to backend...${NC}"
+echo -e "${BLUE}Preparing output directory...${NC}"
 mkdir -p rustpos/data
-cp -r backend/data/* rustpos/data
-rm -rf rustpos/static
-cp -r frontend/dist rustpos/static
-cp  backend/data/logo_site.png rustpos/static/
-echo "Frontend files copied to rustpos/static"
-
-echo -e "${BLUE}Building backend...${NC}"
-cd backend
-cargo build --release
-cd ..
-cp target/release/rustpos-backend rustpos/rustpos
+cp -r backend/data/* rustpos/data/ 2>/dev/null || true
+cp -r target/site rustpos/site 2>/dev/null || true
+cp target/server/release/rustpos rustpos/rustpos 2>/dev/null || \
+  cp target/release/rustpos rustpos/rustpos 2>/dev/null || \
+  echo "Note: Binary location may vary. Check target/ directory."
 
 echo -e "${GREEN}Build complete!${NC}"
-echo -e "${GREEN}Binary location: rustpos/rustpos${NC}"
 echo -e "${GREEN}Run with: cd rustpos && ./rustpos${NC}"

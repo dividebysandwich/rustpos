@@ -1,6 +1,22 @@
 [workspace]
-members = ["backend", "frontend"]
+members = ["frontend"]
 resolver = "2"
+
+[[workspace.metadata.leptos]]
+name = "rustpos"
+bin-package = "rustpos"
+lib-package = "rustpos"
+output-name = "rustpos"
+site-root = "site"
+site-pkg-dir = "pkg"
+style-file = "frontend/style/main.css"
+assets-dir = "frontend/assets"
+site-addr = "0.0.0.0:3000"
+reload-port = 3001
+bin-features = ["ssr"]
+lib-features = ["hydrate"]
+lib-default-features = false
+bin-default-features = false
 
 [profile.release]
 opt-level = 'z'
