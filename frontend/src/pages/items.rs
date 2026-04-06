@@ -72,6 +72,9 @@ pub fn ItemsPage() -> impl IntoView {
     let (sku, set_sku) = signal(String::new());
     let (in_stock, set_in_stock) = signal(true);
     let (image_preview, set_image_preview) = signal(Option::<String>::None);
+    let (track_stock, set_track_stock) = signal(false);
+    let (stock_quantity, set_stock_quantity) = signal(String::new());
+    let (kitchen_item, set_kitchen_item) = signal(false);
 
     let (reload, set_reload) = signal(0u32);
 
@@ -91,6 +94,9 @@ pub fn ItemsPage() -> impl IntoView {
         set_sku.set(item.sku.clone().unwrap_or_default());
         set_in_stock.set(item.in_stock);
         set_image_preview.set(item.image_path.clone());
+        set_track_stock.set(item.stock_quantity.is_some());
+        set_stock_quantity.set(item.stock_quantity.map(|q| q.to_string()).unwrap_or_default());
+        set_kitchen_item.set(item.kitchen_item);
         set_editing_item.set(Some(item));
     };
 
@@ -99,6 +105,10 @@ pub fn ItemsPage() -> impl IntoView {
         let creating = creating_item.get();
         if let Ok(price_val) = price.get().parse::<f64>() {
             if let Ok(cat_id) = category_id.get().parse::<Uuid>() {
+                let ts = track_stock.get();
+                let sq = if ts { stock_quantity.get().parse::<i32>().ok() } else { None };
+                let ki = Some(kitchen_item.get());
+
                 if creating {
                     let n = name.get();
                     let d = Some(description.get()).filter(|s| !s.is_empty());
@@ -106,7 +116,7 @@ pub fn ItemsPage() -> impl IntoView {
                     let stock = Some(in_stock.get());
                     let img_data = image_preview.get();
                     leptos::task::spawn_local(async move {
-                        if let Ok(new_item) = create_item(n, d, price_val, cat_id, s, stock).await {
+                        if let Ok(new_item) = create_item(n, d, price_val, cat_id, s, stock, sq, ki).await {
                             if let Some(data) = img_data {
                                 if data.starts_with("data:") {
                                     let _ = upload_item_image(new_item.id, data).await;
@@ -126,7 +136,7 @@ pub fn ItemsPage() -> impl IntoView {
                     let img_data = image_preview.get();
                     let had_image = item.image_path.is_some();
                     leptos::task::spawn_local(async move {
-                        if update_item(item_id, n, d, Some(price_val), Some(cat_id), s, stock).await.is_ok() {
+                        if update_item(item_id, n, d, Some(price_val), Some(cat_id), s, stock, sq, Some(ts), ki).await.is_ok() {
                             match img_data.as_deref() {
                                 Some(data) if data.starts_with("data:") => {
                                     let _ = upload_item_image(item_id, data.to_string()).await;
@@ -160,48 +170,47 @@ pub fn ItemsPage() -> impl IntoView {
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new()); set_category_id.set(String::new());
         set_sku.set(String::new()); set_in_stock.set(true);
-        set_image_preview.set(None);
+        set_image_preview.set(None); set_track_stock.set(false);
+        set_stock_quantity.set(String::new()); set_kitchen_item.set(false);
     };
     let start_create = move |_| {
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new());
         set_category_id.set(if let Some(cat) = categories.get().first() { cat.id.to_string() } else { String::new() });
         set_sku.set(String::new()); set_in_stock.set(true);
-        set_image_preview.set(None);
+        set_image_preview.set(None); set_track_stock.set(false);
+        set_stock_quantity.set(String::new()); set_kitchen_item.set(false);
         set_creating_item.set(true); set_editing_item.set(None);
     };
 
     let on_image_selected = move |ev: leptos::ev::Event| {
         handle_image_file(ev, set_image_preview);
     };
-
-    let remove_image = move |_| {
-        set_image_preview.set(None);
-    };
+    let remove_image = move |_| { set_image_preview.set(None); };
 
     view! {
         <div>
             <div class="page-header">
                 <h2>"Items"</h2>
-                <button class="btn-primary" on:click=start_create>"Add New Item"</button>
+                <button class="btn-primary" on:click=start_create
+                    disabled=move || editing_item.get().is_some() || creating_item.get()
+                >"Add New Item"</button>
             </div>
 
             <Show when=move || deleting_item.get().is_some() fallback=|| ()>
                 {move || {
-                    deleting_item.get().map(|(_, name)| {
-                        view! {
-                            <div class="modal-overlay">
-                                <div class="confirmation-modal">
-                                    <h3>"Confirm Delete"</h3>
-                                    <p>"Are you sure you want to delete \""<strong>{name}</strong>"\"?"</p>
-                                    <p class="warning-text">"This action cannot be undone."</p>
-                                    <div class="modal-actions">
-                                        <button class="btn-danger" on:click=delete_item_handler>"Delete"</button>
-                                        <button class="btn-secondary" on:click=cancel_delete>"Cancel"</button>
-                                    </div>
+                    deleting_item.get().map(|(_, name)| view! {
+                        <div class="modal-overlay">
+                            <div class="confirmation-modal">
+                                <h3>"Confirm Delete"</h3>
+                                <p>"Are you sure you want to delete \""<strong>{name}</strong>"\"?"</p>
+                                <p class="warning-text">"This action cannot be undone."</p>
+                                <div class="modal-actions">
+                                    <button class="btn-danger" on:click=delete_item_handler>"Delete"</button>
+                                    <button class="btn-secondary" on:click=cancel_delete>"Cancel"</button>
                                 </div>
                             </div>
-                        }
+                        </div>
                     })
                 }}
             </Show>
@@ -241,6 +250,24 @@ pub fn ItemsPage() -> impl IntoView {
                             </label>
                         </div>
                         <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked=move || kitchen_item.get() on:change=move |ev| set_kitchen_item.set(event_target_checked(&ev)) />
+                                " Kitchen Item"
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked=move || track_stock.get() on:change=move |ev| set_track_stock.set(event_target_checked(&ev)) />
+                                " Track Stock Quantity"
+                            </label>
+                            <Show when=move || track_stock.get() fallback=|| view! { <span class="text-muted">"Endless (untracked)"</span> }>
+                                <input type="number" min="0" placeholder="Quantity"
+                                    value=move || stock_quantity.get()
+                                    on:input=move |ev| set_stock_quantity.set(event_target_value(&ev))
+                                />
+                            </Show>
+                        </div>
+                        <div class="form-group">
                             <label>"Image"</label>
                             <input type="file" accept="image/*" on:change=on_image_selected />
                             <Show when=move || image_preview.get().is_some() fallback=|| ()>
@@ -259,9 +286,9 @@ pub fn ItemsPage() -> impl IntoView {
             </Show>
 
             <table class="data-table">
-                <thead><tr><th>"Image"</th><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"SKU"</th><th>"In Stock"</th><th></th></tr></thead>
+                <thead><tr><th>"Image"</th><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"Stock"</th><th>"Kitchen"</th><th></th></tr></thead>
                 <tbody>
-                    <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone()) let:item>
+                    <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone(), i.stock_quantity, i.kitchen_item) let:item>
                         {
                             let item_clone = item.clone();
                             let item_id = item.id;
@@ -270,21 +297,27 @@ pub fn ItemsPage() -> impl IntoView {
                                 .find(|c| c.id == item.category_id)
                                 .map(|c| c.name.clone())
                                 .unwrap_or_else(|| "Unknown".to_string());
+                            let stock_display = match item.stock_quantity {
+                                Some(q) => format!("{}", q),
+                                None => if item.in_stock { "Endless".to_string() } else { "Out".to_string() },
+                            };
                             view! {
                                 <tr>
                                     <td class="item-thumb-cell">
-                                        {item.image_path.clone().map(|path| view! {
-                                            <img class="item-thumb" src=path alt="" />
-                                        })}
+                                        {item.image_path.clone().map(|path| view! { <img class="item-thumb" src=path alt="" /> })}
                                     </td>
                                     <td>{item.name.clone()}</td>
                                     <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.price)}</td>
                                     <td>{category_name}</td>
-                                    <td>{item.sku.clone().unwrap_or_else(|| "-".to_string())}</td>
-                                    <td>{if item.in_stock { "✓" } else { "✗" }}</td>
+                                    <td>{stock_display}</td>
+                                    <td>{if item.kitchen_item { "Yes" } else { "-" }}</td>
                                     <td class="data-table-actions">
-                                        <button class="btn-small" on:click=move |_| start_edit(item_clone.clone())>"Edit"</button>
-                                        <button class="btn-small btn-danger" on:click=move |_| confirm_delete(item_id, item_name.clone())>"Delete"</button>
+                                        <button class="btn-small" on:click=move |_| start_edit(item_clone.clone())
+                                            disabled=move || editing_item.get().is_some() || creating_item.get()
+                                        >"Edit"</button>
+                                        <button class="btn-small btn-danger" on:click=move |_| confirm_delete(item_id, item_name.clone())
+                                            disabled=move || editing_item.get().is_some() || creating_item.get()
+                                        >"Delete"</button>
                                     </td>
                                 </tr>
                             }

@@ -17,7 +17,7 @@ chrono = { version = "0.4.44", features = ["serde"] }
 
 # SSR dependencies
 leptos_axum = { version = "0.8", optional = true }
-axum = { version = "0.8.8", features = ["macros"], optional = true }
+axum = { version = "0.8.8", features = ["macros", "ws"], optional = true }
 tokio = { version = "1.51.0", features = ["full"], optional = true }
 sqlx = { version = "0.8.6", features = ["runtime-tokio", "sqlite", "uuid", "chrono"], optional = true }
 tower = { version = "0.5.3", optional = true }
@@ -34,8 +34,10 @@ wasm-bindgen = { version = "0.2.117", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 web-sys = { version = "0.3.94", optional = true, features = [
     "File", "FileList", "FileReader", "HtmlInputElement", "HtmlCanvasElement",
-    "HtmlImageElement", "CanvasRenderingContext2d",
+    "HtmlImageElement", "CanvasRenderingContext2d", "HtmlAnchorElement", "Window",
+    "WebSocket", "MessageEvent", "CloseEvent", "Location",
 ] }
+js-sys = { version = "0.3.94", optional = true }
 
 [features]
 hydrate = [
@@ -43,6 +45,7 @@ hydrate = [
     "dep:wasm-bindgen",
     "dep:console_error_panic_hook",
     "dep:web-sys",
+    "dep:js-sys",
     "chrono/wasmbind",
 ]
 ssr = [

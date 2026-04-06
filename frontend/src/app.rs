@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos_meta::*;
 use leptos_router::{
     components::{A, Route, Router, Routes},
+    hooks::use_location,
     StaticSegment,
 };
 
@@ -45,6 +46,29 @@ pub fn App() -> impl IntoView {
         <Title text="RustPOS"/>
 
         <Router>
+            <AppNavbar dark_mode set_dark_mode />
+
+            <main class="container">
+                <Routes fallback=|| "Page not found">
+                    <Route path=StaticSegment("") view=SalePage/>
+                    <Route path=StaticSegment("transactions") view=TransactionsPage/>
+                    <Route path=StaticSegment("items") view=ItemsPage/>
+                    <Route path=StaticSegment("categories") view=CategoriesPage/>
+                    <Route path=StaticSegment("reports") view=ReportsPage/>
+                    <Route path=StaticSegment("kitchen") view=KitchenPage/>
+                </Routes>
+            </main>
+        </Router>
+    }
+}
+
+#[component]
+fn AppNavbar(dark_mode: ReadSignal<bool>, set_dark_mode: WriteSignal<bool>) -> impl IntoView {
+    let location = use_location();
+    let is_kitchen = move || location.pathname.get().starts_with("/kitchen");
+
+    view! {
+        <Show when=move || !is_kitchen() fallback=|| ()>
             <nav class="navbar">
                 <div class="nav-container">
                     <img class="sitelogo" src="/logo_site.png"/>
@@ -61,12 +85,10 @@ pub fn App() -> impl IntoView {
                         title=move || if dark_mode.get() { "Switch to light mode" } else { "Switch to dark mode" }
                     >
                         <Show when=move || dark_mode.get() fallback=|| view! {
-                            // Moon icon (light mode -> click for dark)
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
                             </svg>
                         }>
-                            // Sun icon (dark mode -> click for light)
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="5"/>
                                 <line x1="12" y1="1" x2="12" y2="3"/>
@@ -82,16 +104,6 @@ pub fn App() -> impl IntoView {
                     </button>
                 </div>
             </nav>
-
-            <main class="container">
-                <Routes fallback=|| "Page not found">
-                    <Route path=StaticSegment("") view=SalePage/>
-                    <Route path=StaticSegment("transactions") view=TransactionsPage/>
-                    <Route path=StaticSegment("items") view=ItemsPage/>
-                    <Route path=StaticSegment("categories") view=CategoriesPage/>
-                    <Route path=StaticSegment("reports") view=ReportsPage/>
-                </Routes>
-            </main>
-        </Router>
+        </Show>
     }
 }

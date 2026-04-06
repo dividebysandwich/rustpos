@@ -153,12 +153,8 @@ pub async fn update_category(
         .map_err(db_err)?
         .ok_or_else(|| not_found("Category not found"))?;
 
-    if let Some(n) = name {
-        category.name = n;
-    }
-    if let Some(d) = description {
-        category.description = Some(d);
-    }
+    if let Some(n) = name { category.name = n; }
+    if let Some(d) = description { category.description = Some(d); }
     category.updated_at = Utc::now();
 
     let updated = sqlx::query_as::<_, Category>(
@@ -208,14 +204,17 @@ pub async fn create_item(
     category_id: Uuid,
     sku: Option<String>,
     in_stock: Option<bool>,
+    stock_quantity: Option<i32>,
+    kitchen_item: Option<bool>,
 ) -> Result<Item, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let id = Uuid::new_v4();
     let now = Utc::now();
     let in_stock = in_stock.unwrap_or(true);
+    let kitchen_item = kitchen_item.unwrap_or(false);
     let item = sqlx::query_as::<_, Item>(
-        "INSERT INTO items (id, name, description, price, category_id, sku, in_stock, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+        "INSERT INTO items (id, name, description, price, category_id, sku, in_stock, stock_quantity, kitchen_item, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
     )
     .bind(id)
     .bind(&name)
@@ -224,6 +223,8 @@ pub async fn create_item(
     .bind(category_id)
     .bind(&sku)
     .bind(in_stock)
+    .bind(stock_quantity)
+    .bind(kitchen_item)
     .bind(now)
     .bind(now)
     .fetch_one(&pool)
@@ -241,6 +242,9 @@ pub async fn update_item(
     category_id: Option<Uuid>,
     sku: Option<String>,
     in_stock: Option<bool>,
+    stock_quantity: Option<i32>,
+    track_stock: Option<bool>,
+    kitchen_item: Option<bool>,
 ) -> Result<Item, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let mut item = sqlx::query_as::<_, Item>("SELECT * FROM items WHERE id = ?")
@@ -256,11 +260,22 @@ pub async fn update_item(
     if let Some(c) = category_id { item.category_id = c; }
     if let Some(s) = sku { item.sku = Some(s); }
     if let Some(s) = in_stock { item.in_stock = s; }
+    if let Some(k) = kitchen_item { item.kitchen_item = k; }
+    // track_stock=Some(false) means "endless" -> set stock_quantity to None
+    if let Some(track) = track_stock {
+        if track {
+            if let Some(qty) = stock_quantity { item.stock_quantity = Some(qty); }
+        } else {
+            item.stock_quantity = None;
+        }
+    } else if let Some(qty) = stock_quantity {
+        item.stock_quantity = Some(qty);
+    }
     item.updated_at = Utc::now();
 
     let updated = sqlx::query_as::<_, Item>(
         "UPDATE items SET name = ?, description = ?, price = ?, category_id = ?,
-         sku = ?, in_stock = ?, updated_at = ? WHERE id = ? RETURNING *",
+         sku = ?, in_stock = ?, stock_quantity = ?, kitchen_item = ?, updated_at = ? WHERE id = ? RETURNING *",
     )
     .bind(&item.name)
     .bind(&item.description)
@@ -268,6 +283,8 @@ pub async fn update_item(
     .bind(item.category_id)
     .bind(&item.sku)
     .bind(item.in_stock)
+    .bind(item.stock_quantity)
+    .bind(item.kitchen_item)
     .bind(item.updated_at)
     .bind(id)
     .fetch_one(&pool)
@@ -299,7 +316,6 @@ pub async fn upload_item_image(
 ) -> Result<String, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
 
-    // Validate item exists
     sqlx::query("SELECT id FROM items WHERE id = ?")
         .bind(item_id)
         .fetch_optional(&pool)
@@ -307,22 +323,15 @@ pub async fn upload_item_image(
         .map_err(db_err)?
         .ok_or_else(|| not_found("Item not found"))?;
 
-    // image_data is a base64 data URL like "data:image/png;base64,..."
-    // Extract the raw base64 and mime type
     let (mime, b64) = image_data
         .strip_prefix("data:")
         .and_then(|s| s.split_once(','))
         .ok_or_else(|| not_found("Invalid image data"))?;
 
-    let ext = if mime.starts_with("image/png") {
-        "png"
-    } else if mime.starts_with("image/jpeg") {
-        "jpg"
-    } else if mime.starts_with("image/webp") {
-        "webp"
-    } else {
-        "png"
-    };
+    let ext = if mime.starts_with("image/png") { "png" }
+        else if mime.starts_with("image/jpeg") { "jpg" }
+        else if mime.starts_with("image/webp") { "webp" }
+        else { "png" };
 
     use std::io::Write;
     let bytes = base64_decode(b64).map_err(|e| db_err(e))?;
@@ -378,7 +387,6 @@ pub async fn remove_item_image(item_id: Uuid) -> Result<(), ServerFnError> {
 
 #[cfg(feature = "ssr")]
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    // Simple base64 decoder — no extra dependency needed
     use std::collections::HashMap;
     let table: HashMap<u8, u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
         .iter()
@@ -393,9 +401,7 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
         let mut buf = [0u8; 4];
         let mut len = 0;
         for (i, &b) in chunk.iter().enumerate() {
-            if b == b'=' {
-                break;
-            }
+            if b == b'=' { break; }
             buf[i] = *table.get(&b).ok_or_else(|| format!("Invalid base64 char: {}", b as char))?;
             len = i + 1;
         }
@@ -534,6 +540,23 @@ pub async fn add_item_to_transaction(
 
     if !item.in_stock {
         return Err(not_found("Item is out of stock"));
+    }
+
+    // Check stock quantity if tracked
+    if let Some(stock_qty) = item.stock_quantity {
+        let existing_in_transaction = sqlx::query_scalar::<_, i32>(
+            "SELECT quantity FROM transaction_items WHERE transaction_id = ? AND item_id = ?",
+        )
+        .bind(transaction_id)
+        .bind(item_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(db_err)?
+        .unwrap_or(0);
+
+        if existing_in_transaction + quantity > stock_qty {
+            return Err(not_found(&format!("Only {} left in stock", stock_qty - existing_in_transaction)));
+        }
     }
 
     let existing_qty = sqlx::query_scalar::<_, i32>(
@@ -677,6 +700,67 @@ pub async fn close_transaction(
     let change = paid_amount - transaction.total;
     let now = Utc::now();
 
+    // Decrement stock quantities for tracked items
+    let trans_items = sqlx::query_as::<_, TransactionItemDetail>(
+        "SELECT ti.id, ti.item_id, i.name as item_name, ti.quantity,
+         ti.unit_price, ti.total_price
+         FROM transaction_items ti
+         JOIN items i ON ti.item_id = i.id
+         WHERE ti.transaction_id = ?",
+    )
+    .bind(id)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    for ti in &trans_items {
+        // Decrement stock_quantity for tracked items
+        sqlx::query(
+            "UPDATE items SET stock_quantity = stock_quantity - ?
+             WHERE id = ? AND stock_quantity IS NOT NULL",
+        )
+        .bind(ti.quantity)
+        .bind(ti.item_id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+        // Auto-mark out of stock if stock_quantity reaches 0
+        sqlx::query(
+            "UPDATE items SET in_stock = 0 WHERE id = ? AND stock_quantity IS NOT NULL AND stock_quantity <= 0",
+        )
+        .bind(ti.item_id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+        // Create kitchen order items for kitchen items
+        let is_kitchen: bool = sqlx::query_scalar("SELECT kitchen_item FROM items WHERE id = ?")
+            .bind(ti.item_id)
+            .fetch_one(&pool)
+            .await
+            .map_err(db_err)?;
+
+        if is_kitchen {
+            let ko_id = Uuid::new_v4();
+            sqlx::query(
+                "INSERT INTO kitchen_order_items (id, transaction_id, transaction_item_id, item_id, item_name, quantity, customer_name, completed, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?)",
+            )
+            .bind(ko_id)
+            .bind(id)
+            .bind(ti.id)
+            .bind(ti.item_id)
+            .bind(&ti.item_name)
+            .bind(ti.quantity)
+            .bind(&transaction.customer_name)
+            .bind(now)
+            .execute(&pool)
+            .await
+            .map_err(db_err)?;
+        }
+    }
+
     let transaction = sqlx::query_as::<_, Transaction>(
         "UPDATE transactions SET status = 'closed', paid_amount = ?, change_amount = ?,
          closed_at = ?, updated_at = ? WHERE id = ? RETURNING *",
@@ -690,20 +774,9 @@ pub async fn close_transaction(
     .await
     .map_err(db_err)?;
 
+    // Print receipt
     if transaction.status == "closed" {
-        let items = sqlx::query_as::<_, TransactionItemDetail>(
-            "SELECT ti.id, ti.item_id, i.name as item_name, ti.quantity,
-             ti.unit_price, ti.total_price
-             FROM transaction_items ti
-             JOIN items i ON ti.item_id = i.id
-             WHERE ti.transaction_id = ?",
-        )
-        .bind(id)
-        .fetch_all(&pool)
-        .await
-        .map_err(db_err)?;
-
-        let receipt_items: Vec<(String, u32, f32)> = items
+        let receipt_items: Vec<(String, u32, f32)> = trans_items
             .into_iter()
             .map(|it| (it.item_name, it.quantity as u32, it.unit_price as f32))
             .collect();
@@ -721,6 +794,11 @@ pub async fn close_transaction(
             }
         })
         .await;
+    }
+
+    // Notify kitchen displays via WebSocket
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<()>>() {
+        let _ = tx.send(());
     }
 
     Ok(CloseTransactionResponse {
@@ -770,4 +848,174 @@ pub async fn fetch_monthly_report() -> Result<SalesReport, ServerFnError> {
     let end_date = Utc::now();
     let start_date = end_date - chrono::Duration::days(30);
     generate_sales_report_db(&pool, start_date, end_date).await
+}
+
+#[server]
+pub async fn export_report_csv(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+) -> Result<String, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let report = generate_sales_report_db(&pool, start_date, end_date).await?;
+
+    let mut csv = String::from("Item,Category,Quantity Sold,Revenue,Avg Price,Transactions\n");
+    for item in &report.items {
+        csv.push_str(&format!(
+            "\"{}\",\"{}\",{},{:.2},{:.2},{}\n",
+            item.item_name.replace('"', "\"\""),
+            item.category_name.replace('"', "\"\""),
+            item.quantity_sold,
+            item.total_revenue,
+            item.average_price,
+            item.transaction_count,
+        ));
+    }
+    csv.push_str(&format!(
+        "\nTotal,,{},{:.2},,{}\n",
+        report.summary.total_items_sold,
+        report.summary.total_revenue,
+        report.summary.total_transactions,
+    ));
+    csv.push_str(&format!("Average Transaction Value,,,,{:.2},\n", report.summary.average_transaction_value));
+    Ok(csv)
+}
+
+// ---- Kitchen Server Functions ----
+
+#[server]
+pub async fn fetch_kitchen_orders() -> Result<Vec<KitchenOrder>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
+    struct KoRow {
+        id: Uuid,
+        transaction_id: Uuid,
+        transaction_item_id: Uuid,
+        item_name: String,
+        quantity: i32,
+        customer_name: Option<String>,
+        completed: bool,
+        created_at: DateTime<Utc>,
+    }
+
+    // Fetch ALL items for any order that has at least one pending item
+    let rows = sqlx::query_as::<_, KoRow>(
+        "SELECT * FROM kitchen_order_items
+         WHERE transaction_id IN (
+             SELECT DISTINCT transaction_id FROM kitchen_order_items WHERE completed = 0
+         )
+         ORDER BY created_at ASC",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    // Group by transaction_id
+    let mut orders: Vec<KitchenOrder> = Vec::new();
+    for row in rows {
+        let existing = orders.iter_mut().find(|o| o.transaction_id == row.transaction_id);
+        let item = KitchenOrderItem {
+            transaction_item_id: row.transaction_item_id,
+            item_name: row.item_name,
+            quantity: row.quantity,
+            completed: row.completed,
+        };
+        if let Some(order) = existing {
+            order.items.push(item);
+        } else {
+            orders.push(KitchenOrder {
+                transaction_id: row.transaction_id,
+                customer_name: row.customer_name,
+                created_at: row.created_at,
+                items: vec![item],
+            });
+        }
+    }
+    Ok(orders)
+}
+
+#[server]
+pub async fn complete_kitchen_item(
+    transaction_item_id: Uuid,
+) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    sqlx::query(
+        "UPDATE kitchen_order_items SET completed = 1, completed_at = ? WHERE transaction_item_id = ?",
+    )
+    .bind(Utc::now())
+    .bind(transaction_item_id)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<()>>() {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+#[server]
+pub async fn complete_kitchen_order(
+    transaction_id: Uuid,
+) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    sqlx::query(
+        "UPDATE kitchen_order_items SET completed = 1, completed_at = ? WHERE transaction_id = ?",
+    )
+    .bind(Utc::now())
+    .bind(transaction_id)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<()>>() {
+        let _ = tx.send(());
+    }
+    Ok(())
+}
+
+#[server]
+pub async fn fetch_completed_kitchen_orders() -> Result<Vec<KitchenOrder>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
+    struct KoRow {
+        id: Uuid,
+        transaction_id: Uuid,
+        transaction_item_id: Uuid,
+        item_name: String,
+        quantity: i32,
+        customer_name: Option<String>,
+        completed: bool,
+        created_at: DateTime<Utc>,
+    }
+
+    let rows = sqlx::query_as::<_, KoRow>(
+        "SELECT * FROM kitchen_order_items WHERE completed = 1 ORDER BY created_at DESC LIMIT 50",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let mut orders: Vec<KitchenOrder> = Vec::new();
+    for row in rows {
+        let existing = orders.iter_mut().find(|o| o.transaction_id == row.transaction_id);
+        let item = KitchenOrderItem {
+            transaction_item_id: row.transaction_item_id,
+            item_name: row.item_name,
+            quantity: row.quantity,
+            completed: row.completed,
+        };
+        if let Some(order) = existing {
+            order.items.push(item);
+        } else {
+            orders.push(KitchenOrder {
+                transaction_id: row.transaction_id,
+                customer_name: row.customer_name,
+                created_at: row.created_at,
+                items: vec![item],
+            });
+        }
+    }
+    Ok(orders)
 }

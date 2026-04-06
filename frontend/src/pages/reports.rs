@@ -6,6 +6,20 @@ use crate::server_fns::*;
 
 const CURRENCY_SYMBOL: &str = "€";
 
+#[cfg(not(target_arch = "wasm32"))]
+fn trigger_csv_download(_csv: &str, _filename: &str) {}
+
+#[cfg(target_arch = "wasm32")]
+fn trigger_csv_download(csv: &str, filename: &str) {
+    use wasm_bindgen::prelude::*;
+    let doc = leptos::prelude::document();
+    let a: web_sys::HtmlAnchorElement = doc.create_element("a").unwrap().unchecked_into();
+    let encoded = format!("data:text/csv;charset=utf-8,{}", js_sys::encode_uri_component(csv));
+    a.set_href(&encoded);
+    a.set_download(filename);
+    a.click();
+}
+
 #[component]
 pub fn ReportsPage() -> impl IntoView {
     let (report, set_report) = signal(Option::<SalesReport>::None);
@@ -95,6 +109,20 @@ pub fn ReportsPage() -> impl IntoView {
                     </div>
                 </Show>
             </div>
+
+            <Show when=move || report.get().is_some() && !loading.get() fallback=|| ()>
+                <button class="btn-primary" style="margin-bottom: 1rem;" on:click=move |_| {
+                    if let Some(r) = report.get() {
+                        let sd = r.start_date;
+                        let ed = r.end_date;
+                        leptos::task::spawn_local(async move {
+                            if let Ok(csv) = export_report_csv(sd, ed).await {
+                                trigger_csv_download(&csv, "sales_report.csv");
+                            }
+                        });
+                    }
+                }>"Export CSV"</button>
+            </Show>
 
             <Show when=move || loading.get() fallback=|| ()>
                 <div class="loading">"Loading report..."</div>

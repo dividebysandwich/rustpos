@@ -23,6 +23,8 @@ pub struct Item {
     pub sku: Option<String>,
     pub in_stock: bool,
     pub image_path: Option<String>,
+    pub stock_quantity: Option<i32>,
+    pub kitchen_item: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -92,4 +94,22 @@ pub struct SalesReport {
     pub end_date: DateTime<Utc>,
     pub items: Vec<ItemSalesReport>,
     pub summary: ReportSummary,
+}
+
+// Kitchen models
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KitchenOrderItem {
+    pub transaction_item_id: Uuid,
+    pub item_name: String,
+    pub quantity: i32,
+    pub completed: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KitchenOrder {
+    pub transaction_id: Uuid,
+    pub customer_name: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub items: Vec<KitchenOrderItem>,
 }

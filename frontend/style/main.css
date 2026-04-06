@@ -970,6 +970,350 @@ button:focus-visible {
 }
 
 /* ============================================
+   Quick Cash Buttons
+   ============================================ */
+
+.keypad-mode-toggle {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-xs);
+}
+
+.keypad-toggle-btn {
+    padding: 0.4rem 0.75rem;
+    font-size: 0.875rem;
+    background: var(--btn-neutral);
+    color: var(--btn-neutral-text);
+    border-radius: var(--radius-sm);
+}
+
+.keypad-toggle-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+.quick-cash-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-sm);
+}
+
+.quick-cash-btn {
+    padding: 0.85rem;
+    font-size: 1.3rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    border-radius: var(--radius-sm);
+    min-height: var(--touch-min);
+    background: var(--surface);
+    border: 2px solid var(--border);
+    color: var(--text);
+}
+
+.quick-cash-btn:active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+.quick-cash-exact {
+    background: var(--success-light);
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.quick-cash-clear {
+    background: var(--danger-light);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+/* ============================================
+   Stock Warning Badge
+   ============================================ */
+
+.stock-warning {
+    position: absolute;
+    bottom: var(--space-xs);
+    left: var(--space-xs);
+    background: var(--warning);
+    color: #000;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 700;
+    z-index: 2;
+}
+
+.text-muted {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+/* ============================================
+   Sale Page Tab Bar
+   ============================================ */
+
+.sale-tab-bar {
+    display: flex;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+}
+
+.sale-tab {
+    padding: 0.5rem 1.5rem;
+    border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+    background: var(--light);
+    color: var(--text-muted);
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-bottom: none;
+}
+
+.sale-tab.active {
+    background: var(--surface);
+    color: var(--text);
+    border-bottom: 2px solid var(--surface);
+    margin-bottom: -1px;
+}
+
+/* ============================================
+   Kitchen Status Panel (cashier view)
+   ============================================ */
+
+.kitchen-status-panel {
+    padding: var(--space-md);
+}
+
+.kitchen-status-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-md);
+    margin-bottom: var(--space-sm);
+}
+
+.kitchen-status-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: var(--space-sm);
+}
+
+.kitchen-status-time {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.kitchen-status-items {
+    list-style: none;
+    padding: 0;
+}
+
+.kitchen-status-items li {
+    padding: var(--space-xs) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.kitchen-status-items li:last-child {
+    border-bottom: none;
+}
+
+.kitchen-empty {
+    color: var(--text-muted);
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+/* ============================================
+   Kitchen Display Page (/kitchen)
+   ============================================ */
+
+.kitchen-page {
+    padding: var(--space-md);
+    min-height: 100dvh;
+    background: var(--light);
+}
+
+.kitchen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+}
+
+.kitchen-header h1 {
+    font-size: 2rem;
+}
+
+.kitchen-refresh-btn {
+    font-size: 1.2rem;
+    padding: 0.75rem 1.5rem;
+}
+
+.kitchen-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: var(--space-lg);
+}
+
+.kitchen-order-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.kitchen-order-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 2px solid var(--border);
+}
+
+.kitchen-customer {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.kitchen-time {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+}
+
+.kitchen-order-items {
+    margin-bottom: var(--space-md);
+}
+
+.kitchen-item-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-sm) 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.kitchen-item-row:last-child {
+    border-bottom: none;
+}
+
+.kitchen-item-qty {
+    font-size: 1.4rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+    min-width: 3rem;
+}
+
+.kitchen-item-name {
+    font-size: 1.4rem;
+    flex: 1;
+}
+
+.kitchen-done-btn {
+    background: var(--success);
+    color: white;
+    padding: 0.5rem 1.25rem;
+    font-size: 1.1rem;
+    border-radius: var(--radius-sm);
+    min-height: var(--touch-min);
+}
+
+.kitchen-complete-order-btn {
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    padding: 0.85rem;
+    font-size: 1.3rem;
+    font-weight: 700;
+    border-radius: var(--radius-md);
+    min-height: 56px;
+}
+
+.kitchen-empty-msg {
+    text-align: center;
+    padding: 4rem var(--space-xl);
+    color: var(--text-muted);
+}
+
+.kitchen-empty-msg h2 {
+    font-size: 2rem;
+    margin-bottom: var(--space-md);
+}
+
+.kitchen-empty-msg p {
+    font-size: 1.2rem;
+}
+
+.kitchen-header-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.kitchen-header-btn {
+    font-size: 1.1rem;
+    padding: 0.6rem 1.25rem;
+}
+
+.kitchen-section-title {
+    margin: var(--space-xl) 0 var(--space-md);
+    font-size: 1.5rem;
+}
+
+/* Done states */
+.kitchen-item-done .kitchen-item-qty,
+.kitchen-item-done .kitchen-item-name {
+    opacity: 0.45;
+    text-decoration: line-through;
+}
+
+.kitchen-done-check {
+    color: var(--success);
+    font-weight: 700;
+    font-size: 1.1rem;
+    min-width: 4rem;
+    text-align: center;
+}
+
+@keyframes kitchen-blink {
+    0%, 100% { border-color: var(--success); box-shadow: 0 0 0 3px var(--success-light); }
+    50% { border-color: var(--border); box-shadow: none; }
+}
+
+.kitchen-order-new {
+    animation: kitchen-blink 0.5s ease-in-out 6;
+}
+
+.kitchen-order-all-done {
+    border-color: var(--success);
+    background: var(--success-light);
+}
+
+.kitchen-order-all-done .kitchen-complete-order-btn {
+    background: var(--success);
+}
+
+.kitchen-order-completed {
+    border-color: var(--text-muted);
+    opacity: 0.65;
+}
+
+.kitchen-order-completed .kitchen-item-qty,
+.kitchen-order-completed .kitchen-item-name {
+    opacity: 0.7;
+    text-decoration: line-through;
+}
+
+/* Sale page kitchen status: done items */
+.kitchen-status-item-done {
+    text-decoration: line-through;
+    opacity: 0.55;
+    color: var(--success);
+}
+
+/* ============================================
    Item Image Management (Items page)
    ============================================ */
 

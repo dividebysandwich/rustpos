@@ -80,7 +80,9 @@ pub fn CategoriesPage() -> impl IntoView {
         <div>
             <div class="page-header">
                 <h2>"Categories"</h2>
-                <button class="btn-primary" on:click=start_create>"Add New Category"</button>
+                <button class="btn-primary" on:click=start_create
+                    disabled=move || editing_category.get().is_some() || creating_category.get()
+                >"Add New Category"</button>
             </div>
 
             <Show when=move || deleting_category.get().is_some() fallback=|| ()>
@@ -136,8 +138,12 @@ pub fn CategoriesPage() -> impl IntoView {
                                     <td>{category.name.clone()}</td>
                                     <td>{category.description.clone().unwrap_or_else(|| "-".to_string())}</td>
                                     <td class="data-table-actions">
-                                        <button class="btn-small" on:click=move |_| start_edit(category_clone.clone())>"Edit"</button>
-                                        <button class="btn-small btn-danger" on:click=move |_| confirm_delete(category_id, category_name.clone())>"Delete"</button>
+                                        <button class="btn-small" on:click=move |_| start_edit(category_clone.clone())
+                                            disabled=move || editing_category.get().is_some() || creating_category.get()
+                                        >"Edit"</button>
+                                        <button class="btn-small btn-danger" on:click=move |_| confirm_delete(category_id, category_name.clone())
+                                            disabled=move || editing_category.get().is_some() || creating_category.get()
+                                        >"Delete"</button>
                                     </td>
                                 </tr>
                             }

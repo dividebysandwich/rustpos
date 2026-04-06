@@ -2454,6 +2454,7 @@ dependencies = [
  "chrono",
  "console_error_panic_hook",
  "glob",
+ "js-sys",
  "leptos",
  "leptos_axum",
  "leptos_meta",

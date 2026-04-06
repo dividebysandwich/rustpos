@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use leptos::prelude::*;
 use uuid::Uuid;
 
@@ -5,6 +6,30 @@ use crate::models::*;
 use crate::server_fns::*;
 
 const CURRENCY_SYMBOL: &str = "€";
+
+fn format_elapsed(created_at: DateTime<Utc>, _tick: u32) -> String {
+    let elapsed = Utc::now().signed_duration_since(created_at);
+    let total_secs = elapsed.num_seconds().max(0);
+    let mins = total_secs / 60;
+    let secs = total_secs % 60;
+    format!("{}:{:02}", mins, secs)
+}
+
+#[cfg(target_arch = "wasm32")]
+fn setup_tick(set_tick: WriteSignal<u32>) {
+    use wasm_bindgen::prelude::*;
+    let cb = Closure::wrap(Box::new(move || {
+        set_tick.update(|v| *v = v.wrapping_add(1));
+    }) as Box<dyn Fn()>);
+    let _ = web_sys::window().unwrap()
+        .set_interval_with_callback_and_timeout_and_arguments_0(
+            cb.as_ref().unchecked_ref(), 1000,
+        );
+    cb.forget();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn setup_tick(_set_tick: WriteSignal<u32>) {}
 
 #[component]
 pub fn SalePage() -> impl IntoView {
@@ -22,6 +47,13 @@ pub fn SalePage() -> impl IntoView {
     let (canceling_transaction, set_canceling_transaction) = signal(Option::<Uuid>::None);
     let (last_closed_transaction, set_last_closed_transaction) =
         signal(Option::<Transaction>::None);
+    let (use_quick_cash, set_use_quick_cash) = signal(true);
+    let (active_tab, set_active_tab) = signal("sale".to_string());
+    let (kitchen_orders, set_kitchen_orders) = signal(Vec::<KitchenOrder>::new());
+    let (reload_items, set_reload_items) = signal(0u32);
+    let (tick, set_tick) = signal(0u32);
+
+    Effect::new(move || { setup_tick(set_tick); });
 
     let fetch_last_closed = move || {
         leptos::task::spawn_local(async move {
@@ -36,6 +68,7 @@ pub fn SalePage() -> impl IntoView {
     };
 
     Effect::new(move || {
+        reload_items.get();
         leptos::task::spawn_local(async move {
             if let Ok(cats) = fetch_categories().await {
                 set_categories.set(cats);
@@ -47,6 +80,19 @@ pub fn SalePage() -> impl IntoView {
                 set_open_transactions.set(trans);
             }
         });
+    });
+
+    // Reload kitchen orders when kitchen tab is active
+    let (reload_kitchen, set_reload_kitchen) = signal(0u32);
+    Effect::new(move || {
+        reload_kitchen.get();
+        if active_tab.get() == "kitchen" {
+            leptos::task::spawn_local(async move {
+                if let Ok(orders) = fetch_kitchen_orders().await {
+                    set_kitchen_orders.set(orders);
+                }
+            });
+        }
     });
 
     let filtered_items = move || {
@@ -138,10 +184,13 @@ pub fn SalePage() -> impl IntoView {
                         set_change_amount.set(Some(response.change_amount));
                         set_current_transaction.set(None);
                         set_customer_name.set(String::new());
+                        set_payment_amount.set(String::new());
                         if let Ok(trans) = fetch_open_transactions().await {
                             set_open_transactions.set(trans);
                         }
                         fetch_last_closed();
+                        set_reload_items.update(|v| *v += 1);
+                        set_reload_kitchen.update(|v| *v += 1);
                     }
                 });
             }
@@ -211,6 +260,53 @@ pub fn SalePage() -> impl IntoView {
         </Show>
 
         <div class="sale-page">
+            // Sale/Kitchen tab switcher
+            <div class="sale-tab-bar">
+                <button
+                    class=move || if active_tab.get() == "sale" { "sale-tab active" } else { "sale-tab" }
+                    on:click=move |_| set_active_tab.set("sale".to_string())
+                >"Sale"</button>
+                <button
+                    class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
+                    on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
+                >"Kitchen"</button>
+            </div>
+
+            <Show when=move || active_tab.get() == "sale" fallback=move || view! {
+                // Kitchen status tab (read-only)
+                <div class="kitchen-status-panel">
+                    <h3>"Kitchen Orders"</h3>
+                    <Show when=move || kitchen_orders.get().is_empty() fallback=move || view! {
+                        <For each=move || kitchen_orders.get() key=|o| o.transaction_id let:order>
+                            {
+                                let created = order.created_at;
+                                view! {
+                            <div class="kitchen-status-card">
+                                <div class="kitchen-status-header">
+                                    <strong>{order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}</strong>
+                                    <span class="kitchen-status-time">{move || format_elapsed(created, tick.get())}</span>
+                                </div>
+                                <ul class="kitchen-status-items">
+                                    <For each=move || order.items.clone() key=|i| (i.transaction_item_id, i.completed) let:item>
+                                        <li class=if item.completed { "kitchen-status-item-done" } else { "" }>
+                                            {if item.completed { "✓ " } else { "" }}
+                                            {format!("{}x {}", item.quantity, item.item_name)}
+                                        </li>
+                                    </For>
+                                </ul>
+                            </div>
+                                }
+                            }
+                        </For>
+                    }>
+                        <p class="kitchen-empty">"No pending kitchen orders"</p>
+                    </Show>
+                    <button class="btn-secondary" style="margin-top: 1rem;"
+                        on:click=move |_| set_reload_kitchen.update(|v| *v += 1)
+                    >"Refresh"</button>
+                </div>
+            }>
+
             <div class="sale-grid">
                 <div class="items-section">
                     <h2>"Items"</h2>
@@ -232,16 +328,18 @@ pub fn SalePage() -> impl IntoView {
                         </For>
                     </div>
                     <div class="items-grid">
-                        <For each=filtered_items key=|item| (item.id, item.name.clone(), item.price.to_bits(), item.in_stock, item.image_path.clone()) let:item>
+                        <For each=filtered_items key=|item| (item.id, item.name.clone(), item.price.to_bits(), item.in_stock, item.image_path.clone(), item.stock_quantity) let:item>
                             {
                                 let item_clone = item.clone();
                                 let has_image = item.image_path.is_some();
                                 let card_class = if has_image { "item-card item-card-has-image" } else { "item-card" };
+                                let stock_warn = item.stock_quantity.filter(|&q| q > 0 && q <= 5);
+                                let is_out = !item.in_stock || item.stock_quantity.map(|q| q <= 0).unwrap_or(false);
                                 view! {
                                     <button
                                         class=card_class
                                         on:click=move |_| add_item(item_clone.clone())
-                                        disabled=move || current_transaction.get().is_none()
+                                        disabled=move || current_transaction.get().is_none() || is_out
                                     >
                                         {item.image_path.clone().map(|path| view! {
                                             <img class="item-card-img" src=path alt="" />
@@ -250,9 +348,12 @@ pub fn SalePage() -> impl IntoView {
                                             <div class="item-price-badge">{format!("{}{:.2}", CURRENCY_SYMBOL, item.price)}</div>
                                             <div class="item-name-badge">{item.name.clone()}</div>
                                         </div>
-                                        <Show when=move || !item.in_stock fallback=|| ()>
+                                        <Show when=move || is_out fallback=|| ()>
                                             <div class="out-of-stock">"Out of Stock"</div>
                                         </Show>
+                                        {stock_warn.map(|q| view! {
+                                            <div class="stock-warning">{format!("{} left", q)}</div>
+                                        })}
                                     </button>
                                 }
                             }
@@ -319,22 +420,20 @@ pub fn SalePage() -> impl IntoView {
                     >
                         <div class="transaction-active">
                             <div class="transaction-header">
-                                <table class="customer-table">
-                                    <tbody>
-                                        <tr>
-                                            <td><strong>"Customer: "</strong></td>
-                                            <td>
-                                                <input type="text" placeholder="Walk-in"
-                                                    on:input=move |ev| set_customer_name.set(event_target_value(&ev))
-                                                    value=move || customer_name.get()
-                                                />
-                                            </td>
-                                            <td class="customer-table-actions">
-                                                <button class="btn-primary-small" on:click=do_update_transaction>"Update"</button>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                <table class="customer-table"><tbody>
+                                    <tr>
+                                        <td><strong>"Customer: "</strong></td>
+                                        <td>
+                                            <input type="text" placeholder="Walk-in"
+                                                on:input=move |ev| set_customer_name.set(event_target_value(&ev))
+                                                value=move || customer_name.get()
+                                            />
+                                        </td>
+                                        <td class="customer-table-actions">
+                                            <button class="btn-primary-small" on:click=do_update_transaction>"Update"</button>
+                                        </td>
+                                    </tr>
+                                </tbody></table>
                             </div>
 
                             <div class="transaction-items">
@@ -381,22 +480,56 @@ pub fn SalePage() -> impl IntoView {
                             </div>
 
                             <div class="keypad-section">
-                                <div class="keypad">
-                                    <For each=|| vec!["7","8","9","4","5","6","1","2","3","0",".","⌫"] key=|val| val.to_string() let:val>
-                                        {
-                                            let val_clone = val.to_string();
-                                            view! {
-                                                <button class="keypad-btn" on:click=move |_| {
-                                                    if val_clone == "⌫" {
-                                                        set_payment_amount.update(|amt| { amt.pop(); });
-                                                    } else {
-                                                        set_payment_amount.update(|amt| amt.push_str(&val_clone));
-                                                    }
-                                                }>{val}</button>
-                                            }
-                                        }
-                                    </For>
+                                // Toggle between number keys and quick cash
+                                <div class="keypad-mode-toggle">
+                                    <button
+                                        class=move || if !use_quick_cash.get() { "keypad-toggle-btn active" } else { "keypad-toggle-btn" }
+                                        on:click=move |_| set_use_quick_cash.set(false)
+                                    >"Keypad"</button>
+                                    <button
+                                        class=move || if use_quick_cash.get() { "keypad-toggle-btn active" } else { "keypad-toggle-btn" }
+                                        on:click=move |_| set_use_quick_cash.set(true)
+                                    >"Quick Cash"</button>
                                 </div>
+
+                                <Show when=move || !use_quick_cash.get() fallback=move || view! {
+                                    // Quick cash note buttons
+                                    <div class="quick-cash-grid">
+                                        <For each=|| vec![5, 10, 20, 50, 100, 200] key=|v| *v let:val>
+                                            {
+                                                let v = val;
+                                                view! {
+                                                    <button class="quick-cash-btn"
+                                                        on:click=move |_| set_payment_amount.set(format!("{}", v))
+                                                    >{format!("{}{}", CURRENCY_SYMBOL, v)}</button>
+                                                }
+                                            }
+                                        </For>
+                                        <button class="quick-cash-btn quick-cash-exact"
+                                            on:click=move |_| set_payment_amount.set(format!("{:.2}", transaction_total()))
+                                        >"Exact"</button>
+                                        <button class="quick-cash-btn quick-cash-clear"
+                                            on:click=move |_| set_payment_amount.set(String::new())
+                                        >"Clear"</button>
+                                    </div>
+                                }>
+                                    <div class="keypad">
+                                        <For each=|| vec!["7","8","9","4","5","6","1","2","3","0",".","⌫"] key=|val| val.to_string() let:val>
+                                            {
+                                                let val_clone = val.to_string();
+                                                view! {
+                                                    <button class="keypad-btn" on:click=move |_| {
+                                                        if val_clone == "⌫" {
+                                                            set_payment_amount.update(|amt| { amt.pop(); });
+                                                        } else {
+                                                            set_payment_amount.update(|amt| amt.push_str(&val_clone));
+                                                        }
+                                                    }>{val}</button>
+                                                }
+                                            }
+                                        </For>
+                                    </div>
+                                </Show>
                             </div>
 
                             <div class="action-buttons">
@@ -414,6 +547,7 @@ pub fn SalePage() -> impl IntoView {
                     </Show>
                 </div>
             </div>
+            </Show>
         </div>
     }
 }

@@ -12,6 +12,7 @@ async fn main() {
     use sqlx::sqlite::SqlitePool;
     use std::env;
     use std::net::SocketAddr;
+    use tokio::sync::broadcast;
 
     tracing_subscriber::fmt::init();
 
@@ -100,11 +101,25 @@ async fn main() {
     .await
     .expect("Failed to create transaction_items table");
 
-    // Add image_path column if missing (migration)
-    sqlx::query("ALTER TABLE items ADD COLUMN image_path TEXT")
-        .execute(&db)
-        .await
-        .ok();
+    // Migrations for new columns
+    sqlx::query("ALTER TABLE items ADD COLUMN image_path TEXT").execute(&db).await.ok();
+    sqlx::query("ALTER TABLE items ADD COLUMN stock_quantity INTEGER").execute(&db).await.ok();
+    sqlx::query("ALTER TABLE items ADD COLUMN kitchen_item BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS kitchen_order_items (
+            id TEXT PRIMARY KEY,
+            transaction_id TEXT NOT NULL,
+            transaction_item_id TEXT NOT NULL,
+            item_id TEXT NOT NULL,
+            item_name TEXT NOT NULL,
+            quantity INTEGER NOT NULL,
+            customer_name TEXT,
+            completed BOOLEAN NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            completed_at TEXT,
+            FOREIGN KEY (transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+        )"#,
+    ).execute(&db).await.ok();
 
     // Create indexes
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)")
@@ -142,15 +157,20 @@ async fn main() {
     leptos_options.site_root = "site".into();
     let routes = generate_route_list(App);
 
+    let (kitchen_tx, _) = broadcast::channel::<()>(16);
+
     let app = Router::new()
+        .route("/ws/kitchen", axum::routing::get(kitchen_ws_handler))
         .nest_service("/item_images", tower_http::services::ServeDir::new("data/item_images"))
         .leptos_routes_with_context(
             &leptos_options,
             routes,
             {
                 let db = db.clone();
+                let kitchen_tx = kitchen_tx.clone();
                 move || {
                     provide_context(db.clone());
+                    provide_context(kitchen_tx.clone());
                 }
             },
             {
@@ -159,6 +179,7 @@ async fn main() {
             },
         )
         .fallback(leptos_axum::file_and_error_handler(shell))
+        .layer(axum::Extension(kitchen_tx))
         .with_state(leptos_options);
 
     let port = env::var("RUSTPOS_PORT")
@@ -172,6 +193,38 @@ async fn main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+#[cfg(feature = "ssr")]
+async fn kitchen_ws_handler(
+    wsu: axum::extract::ws::WebSocketUpgrade,
+    axum::Extension(tx): axum::Extension<tokio::sync::broadcast::Sender<()>>,
+) -> impl axum::response::IntoResponse {
+    use axum::extract::ws::Message;
+    wsu.on_upgrade(move |mut socket| async move {
+        let mut rx = tx.subscribe();
+        let _ = socket.send(Message::Text("refresh".into())).await;
+        loop {
+            tokio::select! {
+                result = rx.recv() => {
+                    match result {
+                        Ok(()) => {
+                            if socket.send(Message::Text("refresh".into())).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                msg = socket.recv() => {
+                    match msg {
+                        Some(Ok(_)) => {}
+                        _ => break,
+                    }
+                }
+            }
+        }
+    })
 }
 
 #[cfg(not(feature = "ssr"))]
