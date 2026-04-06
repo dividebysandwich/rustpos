@@ -24,8 +24,8 @@ async fn main() {
         }
     }
 
-    // Create data directory if it doesn't exist
-    std::fs::create_dir_all("data").ok();
+    // Create data directories if they don't exist
+    std::fs::create_dir_all("data/item_images").ok();
 
     // Create database connection with auto-create
     let db = SqlitePool::connect("sqlite:data/pos.db?mode=rwc")
@@ -98,6 +98,12 @@ async fn main() {
     .await
     .expect("Failed to create transaction_items table");
 
+    // Add image_path column if missing (migration)
+    sqlx::query("ALTER TABLE items ADD COLUMN image_path TEXT")
+        .execute(&db)
+        .await
+        .ok();
+
     // Create indexes
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)")
         .execute(&db)
@@ -133,6 +139,7 @@ async fn main() {
     let routes = generate_route_list(App);
 
     let app = Router::new()
+        .nest_service("/item_images", tower_http::services::ServeDir::new("data/item_images"))
         .leptos_routes_with_context(
             &leptos_options,
             routes,

@@ -1,7 +1,6 @@
 /target
-/backend/target
-/backend/pos.db
 /frontend/target
 /frontend/dist
+/site
 /rustpos
 /data

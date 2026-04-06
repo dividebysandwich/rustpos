@@ -22,6 +22,7 @@ pub struct Item {
     pub category_id: Uuid,
     pub sku: Option<String>,
     pub in_stock: bool,
+    pub image_path: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

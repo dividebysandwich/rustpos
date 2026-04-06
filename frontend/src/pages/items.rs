@@ -6,6 +6,57 @@ use crate::server_fns::*;
 
 const CURRENCY_SYMBOL: &str = "€";
 
+#[cfg(not(target_arch = "wasm32"))]
+fn handle_image_file(_ev: leptos::ev::Event, _set: WriteSignal<Option<String>>) {}
+
+#[cfg(target_arch = "wasm32")]
+fn handle_image_file(ev: leptos::ev::Event, set_image_preview: WriteSignal<Option<String>>) {
+    use wasm_bindgen::prelude::*;
+    use web_sys::{FileReader, HtmlCanvasElement, HtmlImageElement};
+
+    let input: web_sys::HtmlInputElement = event_target(&ev);
+    let file = input.files().and_then(|f| f.get(0));
+    let Some(file) = file else { return };
+
+    let reader = FileReader::new().unwrap();
+    let reader_clone = reader.clone();
+    let closure = Closure::wrap(Box::new(move || {
+        let Some(data_url) = reader_clone.result().ok().and_then(|v| v.as_string()) else { return };
+        let data_url_clone = data_url.clone();
+        let img = HtmlImageElement::new().unwrap();
+        let img_clone = img.clone();
+        let onload = Closure::wrap(Box::new(move || {
+            let w = img_clone.natural_width();
+            let h = img_clone.natural_height();
+            let max_size = 200u32;
+            let (nw, nh) = if w > h {
+                (max_size, (max_size as f64 * h as f64 / w as f64) as u32)
+            } else {
+                ((max_size as f64 * w as f64 / h as f64) as u32, max_size)
+            };
+            let doc = leptos::prelude::document();
+            let canvas: HtmlCanvasElement = doc.create_element("canvas").unwrap().unchecked_into();
+            canvas.set_width(nw);
+            canvas.set_height(nh);
+            let ctx: web_sys::CanvasRenderingContext2d = canvas
+                .get_context("2d").unwrap().unwrap().unchecked_into();
+            let _ = ctx.draw_image_with_html_image_element_and_dw_and_dh(
+                &img_clone, 0.0, 0.0, nw as f64, nh as f64,
+            );
+            let resized = canvas.to_data_url_with_type("image/webp")
+                .or_else(|_| canvas.to_data_url_with_type("image/png"))
+                .unwrap_or_default();
+            set_image_preview.set(Some(resized));
+        }) as Box<dyn Fn()>);
+        img.set_onload(Some(onload.as_ref().unchecked_ref()));
+        onload.forget();
+        img.set_src(&data_url_clone);
+    }) as Box<dyn Fn()>);
+    reader.set_onload(Some(closure.as_ref().unchecked_ref()));
+    closure.forget();
+    let _ = reader.read_as_data_url(&file);
+}
+
 #[component]
 pub fn ItemsPage() -> impl IntoView {
     let (items, set_items) = signal(Vec::<Item>::new());
@@ -20,6 +71,7 @@ pub fn ItemsPage() -> impl IntoView {
     let (category_id, set_category_id) = signal(String::new());
     let (sku, set_sku) = signal(String::new());
     let (in_stock, set_in_stock) = signal(true);
+    let (image_preview, set_image_preview) = signal(Option::<String>::None);
 
     let load_data = move || {
         leptos::task::spawn_local(async move {
@@ -37,6 +89,7 @@ pub fn ItemsPage() -> impl IntoView {
         set_category_id.set(item.category_id.to_string());
         set_sku.set(item.sku.clone().unwrap_or_default());
         set_in_stock.set(item.in_stock);
+        set_image_preview.set(item.image_path.clone());
         set_editing_item.set(Some(item));
     };
 
@@ -50,10 +103,18 @@ pub fn ItemsPage() -> impl IntoView {
                     let d = Some(description.get()).filter(|s| !s.is_empty());
                     let s = Some(sku.get()).filter(|s| !s.is_empty());
                     let stock = Some(in_stock.get());
+                    let img_data = image_preview.get();
                     leptos::task::spawn_local(async move {
-                        if create_item(n, d, price_val, cat_id, s, stock).await.is_ok() {
+                        if let Ok(new_item) = create_item(n, d, price_val, cat_id, s, stock).await {
+                            // Upload image if one was selected
+                            if let Some(data) = img_data {
+                                if data.starts_with("data:") {
+                                    let _ = upload_item_image(new_item.id, data).await;
+                                }
+                            }
                             load_data();
                             set_creating_item.set(false);
+                            set_image_preview.set(None);
                         }
                     });
                 } else if let Some(item) = editing {
@@ -62,10 +123,23 @@ pub fn ItemsPage() -> impl IntoView {
                     let s = Some(sku.get()).filter(|s| !s.is_empty());
                     let stock = Some(in_stock.get());
                     let item_id = item.id;
+                    let img_data = image_preview.get();
+                    let had_image = item.image_path.is_some();
                     leptos::task::spawn_local(async move {
                         if update_item(item_id, n, d, Some(price_val), Some(cat_id), s, stock).await.is_ok() {
+                            // Handle image changes
+                            match img_data.as_deref() {
+                                Some(data) if data.starts_with("data:") => {
+                                    let _ = upload_item_image(item_id, data.to_string()).await;
+                                }
+                                None if had_image => {
+                                    let _ = remove_item_image(item_id).await;
+                                }
+                                _ => {}
+                            }
                             load_data();
                             set_editing_item.set(None);
+                            set_image_preview.set(None);
                         }
                     });
                 }
@@ -87,13 +161,23 @@ pub fn ItemsPage() -> impl IntoView {
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new()); set_category_id.set(String::new());
         set_sku.set(String::new()); set_in_stock.set(true);
+        set_image_preview.set(None);
     };
     let start_create = move |_| {
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new());
         set_category_id.set(if let Some(cat) = categories.get().first() { cat.id.to_string() } else { String::new() });
         set_sku.set(String::new()); set_in_stock.set(true);
+        set_image_preview.set(None);
         set_creating_item.set(true); set_editing_item.set(None);
+    };
+
+    let on_image_selected = move |ev: leptos::ev::Event| {
+        handle_image_file(ev, set_image_preview);
+    };
+
+    let remove_image = move |_| {
+        set_image_preview.set(None);
     };
 
     view! {
@@ -157,6 +241,16 @@ pub fn ItemsPage() -> impl IntoView {
                                 " In Stock"
                             </label>
                         </div>
+                        <div class="form-group">
+                            <label>"Image"</label>
+                            <input type="file" accept="image/*" on:change=on_image_selected />
+                            <Show when=move || image_preview.get().is_some() fallback=|| ()>
+                                <div class="image-preview-container">
+                                    <img class="image-preview" src=move || image_preview.get().unwrap_or_default() />
+                                    <button type="button" class="btn-small btn-danger" on:click=remove_image>"Remove"</button>
+                                </div>
+                            </Show>
+                        </div>
                     </div>
                     <div class="form-actions">
                         <button class="btn-success" on:click=save_item>"Save"</button>
@@ -166,7 +260,7 @@ pub fn ItemsPage() -> impl IntoView {
             </Show>
 
             <table class="data-table">
-                <thead><tr><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"SKU"</th><th>"In Stock"</th><th></th></tr></thead>
+                <thead><tr><th>"Image"</th><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"SKU"</th><th>"In Stock"</th><th></th></tr></thead>
                 <tbody>
                     <For each=move || items.get() key=|i| i.id let:item>
                         {
@@ -179,6 +273,11 @@ pub fn ItemsPage() -> impl IntoView {
                                 .unwrap_or_else(|| "Unknown".to_string());
                             view! {
                                 <tr>
+                                    <td class="item-thumb-cell">
+                                        {item.image_path.clone().map(|path| view! {
+                                            <img class="item-thumb" src=path alt="" />
+                                        })}
+                                    </td>
                                     <td>{item.name.clone()}</td>
                                     <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.price)}</td>
                                     <td>{category_name}</td>

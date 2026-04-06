@@ -290,6 +290,122 @@ pub async fn delete_item(id: Uuid) -> Result<(), ServerFnError> {
     Ok(())
 }
 
+// ---- Item Image Server Functions ----
+
+#[server]
+pub async fn upload_item_image(
+    item_id: Uuid,
+    image_data: String,
+) -> Result<String, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    // Validate item exists
+    sqlx::query("SELECT id FROM items WHERE id = ?")
+        .bind(item_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| not_found("Item not found"))?;
+
+    // image_data is a base64 data URL like "data:image/png;base64,..."
+    // Extract the raw base64 and mime type
+    let (mime, b64) = image_data
+        .strip_prefix("data:")
+        .and_then(|s| s.split_once(','))
+        .ok_or_else(|| not_found("Invalid image data"))?;
+
+    let ext = if mime.starts_with("image/png") {
+        "png"
+    } else if mime.starts_with("image/jpeg") {
+        "jpg"
+    } else if mime.starts_with("image/webp") {
+        "webp"
+    } else {
+        "png"
+    };
+
+    use std::io::Write;
+    let bytes = base64_decode(b64).map_err(|e| db_err(e))?;
+
+    let dir = "data/item_images";
+    std::fs::create_dir_all(dir).map_err(|e| db_err(e))?;
+
+    let filename = format!("{}.{}", item_id, ext);
+    let filepath = format!("{}/{}", dir, filename);
+
+    let mut file = std::fs::File::create(&filepath).map_err(|e| db_err(e))?;
+    file.write_all(&bytes).map_err(|e| db_err(e))?;
+
+    let url_path = format!("/item_images/{}", filename);
+
+    sqlx::query("UPDATE items SET image_path = ?, updated_at = ? WHERE id = ?")
+        .bind(&url_path)
+        .bind(Utc::now())
+        .bind(item_id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+    Ok(url_path)
+}
+
+#[server]
+pub async fn remove_item_image(item_id: Uuid) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let image_path: Option<String> =
+        sqlx::query_scalar("SELECT image_path FROM items WHERE id = ?")
+            .bind(item_id)
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?
+            .flatten();
+
+    if let Some(ref url_path) = image_path {
+        let fs_path = format!("data{}", url_path);
+        let _ = std::fs::remove_file(&fs_path);
+    }
+
+    sqlx::query("UPDATE items SET image_path = NULL, updated_at = ? WHERE id = ?")
+        .bind(Utc::now())
+        .bind(item_id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+    Ok(())
+}
+
+#[cfg(feature = "ssr")]
+fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
+    // Simple base64 decoder — no extra dependency needed
+    use std::collections::HashMap;
+    let table: HashMap<u8, u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+        .iter()
+        .enumerate()
+        .map(|(i, &c)| (c, i as u8))
+        .collect();
+
+    let input: Vec<u8> = input.bytes().filter(|&b| b != b'\n' && b != b'\r' && b != b' ').collect();
+    let mut out = Vec::with_capacity(input.len() * 3 / 4);
+
+    for chunk in input.chunks(4) {
+        let mut buf = [0u8; 4];
+        let mut len = 0;
+        for (i, &b) in chunk.iter().enumerate() {
+            if b == b'=' {
+                break;
+            }
+            buf[i] = *table.get(&b).ok_or_else(|| format!("Invalid base64 char: {}", b as char))?;
+            len = i + 1;
+        }
+        if len >= 2 { out.push((buf[0] << 2) | (buf[1] >> 4)); }
+        if len >= 3 { out.push((buf[1] << 4) | (buf[2] >> 2)); }
+        if len >= 4 { out.push((buf[2] << 6) | buf[3]); }
+    }
+    Ok(out)
+}
+
 // ---- Transaction Server Functions ----
 
 #[server]

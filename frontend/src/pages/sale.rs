@@ -235,14 +235,21 @@ pub fn SalePage() -> impl IntoView {
                         <For each=filtered_items key=|item| item.id let:item>
                             {
                                 let item_clone = item.clone();
+                                let has_image = item.image_path.is_some();
+                                let card_class = if has_image { "item-card item-card-has-image" } else { "item-card" };
                                 view! {
                                     <button
-                                        class="item-card"
+                                        class=card_class
                                         on:click=move |_| add_item(item_clone.clone())
                                         disabled=move || current_transaction.get().is_none()
                                     >
-                                        <div class="item-name">{item.name.clone()}</div>
-                                        <div class="item-price">{format!("{} {:.2}", CURRENCY_SYMBOL, item.price)}</div>
+                                        {item.image_path.clone().map(|path| view! {
+                                            <img class="item-card-img" src=path alt="" />
+                                        })}
+                                        <div class="item-card-overlay">
+                                            <div class="item-price-badge">{format!("{}{:.2}", CURRENCY_SYMBOL, item.price)}</div>
+                                            <div class="item-name-badge">{item.name.clone()}</div>
+                                        </div>
                                         <Show when=move || !item.in_stock fallback=|| ()>
                                             <div class="out-of-stock">"Out of Stock"</div>
                                         </Show>
