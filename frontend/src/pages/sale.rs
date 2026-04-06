@@ -28,6 +28,41 @@ fn setup_tick(set_tick: WriteSignal<u32>) {
     cb.forget();
 }
 
+#[cfg(target_arch = "wasm32")]
+fn setup_kitchen_ws(set_reload: WriteSignal<u32>) {
+    use wasm_bindgen::prelude::*;
+
+    fn connect(set_reload: WriteSignal<u32>) {
+        let win = web_sys::window().unwrap();
+        let loc = win.location();
+        let proto = if loc.protocol().unwrap_or_default() == "https:" { "wss:" } else { "ws:" };
+        let host = loc.host().unwrap_or_default();
+        let url = format!("{}//{}/ws/kitchen", proto, host);
+        let Ok(ws) = web_sys::WebSocket::new(&url) else { return };
+
+        let sr = set_reload;
+        let onmessage = Closure::wrap(Box::new(move |_: web_sys::MessageEvent| {
+            sr.update(|v| *v += 1);
+        }) as Box<dyn Fn(_)>);
+        ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
+        onmessage.forget();
+
+        let onclose = Closure::wrap(Box::new(move |_: web_sys::CloseEvent| {
+            let sr2 = set_reload;
+            let cb = Closure::wrap(Box::new(move || { connect(sr2); }) as Box<dyn Fn()>);
+            let _ = web_sys::window().unwrap()
+                .set_timeout_with_callback_and_timeout_and_arguments_0(cb.as_ref().unchecked_ref(), 2000);
+            cb.forget();
+        }) as Box<dyn Fn(_)>);
+        ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
+        onclose.forget();
+    }
+    connect(set_reload);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn setup_kitchen_ws(_set_reload: WriteSignal<u32>) {}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn setup_tick(_set_tick: WriteSignal<u32>) {}
 
@@ -82,17 +117,27 @@ pub fn SalePage() -> impl IntoView {
         });
     });
 
-    // Reload kitchen orders when kitchen tab is active
     let (reload_kitchen, set_reload_kitchen) = signal(0u32);
+    Effect::new(move || { setup_kitchen_ws(set_reload_kitchen); });
     Effect::new(move || {
         reload_kitchen.get();
-        if active_tab.get() == "kitchen" {
-            leptos::task::spawn_local(async move {
-                if let Ok(orders) = fetch_kitchen_orders().await {
-                    set_kitchen_orders.set(orders);
+        leptos::task::spawn_local(async move {
+            // Fetch both pending and recently completed orders
+            let mut all_orders = Vec::new();
+            if let Ok(pending) = fetch_kitchen_orders().await {
+                all_orders.extend(pending);
+            }
+            if let Ok(completed) = fetch_completed_kitchen_orders().await {
+                // Only include completed orders not already in pending
+                let pending_ids: Vec<Uuid> = all_orders.iter().map(|o| o.transaction_id).collect();
+                for order in completed {
+                    if !pending_ids.contains(&order.transaction_id) {
+                        all_orders.push(order);
+                    }
                 }
-            });
-        }
+            }
+            set_kitchen_orders.set(all_orders);
+        });
     });
 
     let filtered_items = move || {
@@ -277,14 +322,23 @@ pub fn SalePage() -> impl IntoView {
                 <div class="kitchen-status-panel">
                     <h3>"Kitchen Orders"</h3>
                     <Show when=move || kitchen_orders.get().is_empty() fallback=move || view! {
-                        <For each=move || kitchen_orders.get() key=|o| o.transaction_id let:order>
+                        <For each=move || kitchen_orders.get()
+                            key=|o| (o.transaction_id, o.items.iter().filter(|i| i.completed).count())
+                            let:order
+                        >
                             {
                                 let created = order.created_at;
+                                let all_done = order.items.iter().all(|i| i.completed);
+                                let card_class = if all_done { "kitchen-status-card kitchen-status-card-done" } else { "kitchen-status-card" };
                                 view! {
-                            <div class="kitchen-status-card">
+                            <div class=card_class>
                                 <div class="kitchen-status-header">
                                     <strong>{order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}</strong>
-                                    <span class="kitchen-status-time">{move || format_elapsed(created, tick.get())}</span>
+                                    {if all_done {
+                                        view! { <span class="kitchen-status-time kitchen-status-complete-badge">"Complete"</span> }.into_any()
+                                    } else {
+                                        view! { <span class="kitchen-status-time">{move || format_elapsed(created, tick.get())}</span> }.into_any()
+                                    }}
                                 </div>
                                 <ul class="kitchen-status-items">
                                     <For each=move || order.items.clone() key=|i| (i.transaction_item_id, i.completed) let:item>
@@ -301,9 +355,6 @@ pub fn SalePage() -> impl IntoView {
                     }>
                         <p class="kitchen-empty">"No pending kitchen orders"</p>
                     </Show>
-                    <button class="btn-secondary" style="margin-top: 1rem;"
-                        on:click=move |_| set_reload_kitchen.update(|v| *v += 1)
-                    >"Refresh"</button>
                 </div>
             }>
 

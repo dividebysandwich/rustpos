@@ -76,7 +76,6 @@ pub fn KitchenPage() -> impl IntoView {
     let (completed_orders, set_completed_orders) = signal(Vec::<KitchenOrder>::new());
     let (show_completed, set_show_completed) = signal(false);
     let (reload, set_reload) = signal(0u32);
-    let (locally_done, set_locally_done) = signal(Vec::<Uuid>::new());
     // Track known order IDs to detect new arrivals
     let (known_orders, set_known_orders) = signal(Vec::<Uuid>::new());
     // New orders that should blink (will be cleared after 3s)
@@ -91,7 +90,6 @@ pub fn KitchenPage() -> impl IntoView {
 
     Effect::new(move || {
         reload.get();
-        set_locally_done.set(vec![]);
         leptos::task::spawn_local(async move {
             if let Ok(o) = fetch_kitchen_orders().await {
                 // Detect new orders
@@ -130,23 +128,32 @@ pub fn KitchenPage() -> impl IntoView {
         });
     });
 
-    let is_item_done = move |ti_id: Uuid, server_completed: bool| -> bool {
-        server_completed || locally_done.get().contains(&ti_id)
-    };
-
     let mark_item_done = move |ti_id: Uuid| {
-        set_locally_done.update(|v| v.push(ti_id));
+        // Optimistic update: mutate orders signal directly so the <For> key changes
+        set_orders.update(|orders| {
+            for order in orders.iter_mut() {
+                for item in order.items.iter_mut() {
+                    if item.transaction_item_id == ti_id {
+                        item.completed = true;
+                    }
+                }
+            }
+        });
         leptos::task::spawn_local(async move {
             let _ = complete_kitchen_item(ti_id).await;
         });
     };
 
     let mark_order_done = move |t_id: Uuid| {
-        let item_ids: Vec<Uuid> = orders.get().iter()
-            .filter(|o| o.transaction_id == t_id)
-            .flat_map(|o| o.items.iter().map(|i| i.transaction_item_id))
-            .collect();
-        set_locally_done.update(|v| v.extend(item_ids));
+        set_orders.update(|orders| {
+            for order in orders.iter_mut() {
+                if order.transaction_id == t_id {
+                    for item in order.items.iter_mut() {
+                        item.completed = true;
+                    }
+                }
+            }
+        });
         leptos::task::spawn_local(async move {
             let _ = complete_kitchen_order(t_id).await;
         });
@@ -184,23 +191,19 @@ pub fn KitchenPage() -> impl IntoView {
                 </div>
             }>
                 <div class="kitchen-grid">
-                    <For each=move || orders.get() key=|o| o.transaction_id let:order>
+                    <For each=move || orders.get() key=|o| (o.transaction_id, o.items.iter().filter(|i| i.completed).count()) let:order>
                         {
                             let t_id = order.transaction_id;
                             let created = order.created_at;
-                            let items_for_done_check = order.items.clone();
-                            let all_done = move || {
-                                items_for_done_check.iter().all(|i| is_item_done(i.transaction_item_id, i.completed))
+                            let all_done = order.items.iter().all(|i| i.completed);
+                            let is_new = new_orders.get().contains(&t_id);
+                            let card_class = match (all_done, is_new) {
+                                (true, _) => "kitchen-order-card kitchen-order-all-done",
+                                (false, true) => "kitchen-order-card kitchen-order-new",
+                                (false, false) => "kitchen-order-card",
                             };
-                            let all_done2 = all_done.clone();
-                            let all_done3 = all_done.clone();
                             view! {
-                                <div class=move || {
-                                    let mut cls = String::from("kitchen-order-card");
-                                    if all_done() { cls.push_str(" kitchen-order-all-done"); }
-                                    if new_orders.get().contains(&t_id) { cls.push_str(" kitchen-order-new"); }
-                                    cls
-                                }>
+                                <div class=card_class>
                                     <div class="kitchen-order-header">
                                         <span class="kitchen-customer">
                                             {order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}
@@ -211,20 +214,20 @@ pub fn KitchenPage() -> impl IntoView {
                                         <For each=move || order.items.clone() key=|i| (i.transaction_item_id, i.completed) let:item>
                                             {
                                                 let ti_id = item.transaction_item_id;
-                                                let server_done = item.completed;
-                                                let item_done = move || is_item_done(ti_id, server_done);
-                                                let item_done2 = item_done.clone();
+                                                let done = item.completed;
                                                 view! {
-                                                    <div class=move || if item_done() { "kitchen-item-row kitchen-item-done" } else { "kitchen-item-row" }>
+                                                    <div class=if done { "kitchen-item-row kitchen-item-done" } else { "kitchen-item-row" }>
                                                         <span class="kitchen-item-qty">{format!("{}x", item.quantity)}</span>
                                                         <span class="kitchen-item-name">{item.item_name.clone()}</span>
-                                                        <Show when=move || !item_done2() fallback=|| view! {
-                                                            <span class="kitchen-done-check">"Done"</span>
-                                                        }>
-                                                            <button class="kitchen-done-btn"
-                                                                on:click=move |_| mark_item_done(ti_id)
-                                                            >"Done"</button>
-                                                        </Show>
+                                                        {if done {
+                                                            view! { <span class="kitchen-done-check">"Done"</span> }.into_any()
+                                                        } else {
+                                                            view! {
+                                                                <button class="kitchen-done-btn"
+                                                                    on:click=move |_| mark_item_done(ti_id)
+                                                                >"Done"</button>
+                                                            }.into_any()
+                                                        }}
                                                     </div>
                                                 }
                                             }
@@ -232,8 +235,8 @@ pub fn KitchenPage() -> impl IntoView {
                                     </div>
                                     <button class="kitchen-complete-order-btn"
                                         on:click=move |_| mark_order_done(t_id)
-                                        disabled=move || all_done2()
-                                    >{move || if all_done3() { "Order Complete" } else { "Complete Order" }}</button>
+                                        disabled=all_done
+                                    >{if all_done { "Order Complete" } else { "Complete Order" }}</button>
                                 </div>
                             }
                         }

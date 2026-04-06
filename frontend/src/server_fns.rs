@@ -899,14 +899,20 @@ pub async fn fetch_kitchen_orders() -> Result<Vec<KitchenOrder>, ServerFnError> 
         created_at: DateTime<Utc>,
     }
 
-    // Fetch ALL items for any order that has at least one pending item
+    let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(Utc::now);
+
+    // Fetch ALL items for any order from today that has at least one pending item
     let rows = sqlx::query_as::<_, KoRow>(
         "SELECT * FROM kitchen_order_items
-         WHERE transaction_id IN (
-             SELECT DISTINCT transaction_id FROM kitchen_order_items WHERE completed = 0
+         WHERE created_at >= ? AND transaction_id IN (
+             SELECT DISTINCT transaction_id FROM kitchen_order_items WHERE completed = 0 AND created_at >= ?
          )
          ORDER BY created_at ASC",
     )
+    .bind(today_start)
+    .bind(today_start)
     .fetch_all(&pool)
     .await
     .map_err(db_err)?;
@@ -990,9 +996,14 @@ pub async fn fetch_completed_kitchen_orders() -> Result<Vec<KitchenOrder>, Serve
         created_at: DateTime<Utc>,
     }
 
+    let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+        .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(Utc::now);
+
     let rows = sqlx::query_as::<_, KoRow>(
-        "SELECT * FROM kitchen_order_items WHERE completed = 1 ORDER BY created_at DESC LIMIT 50",
+        "SELECT * FROM kitchen_order_items WHERE completed = 1 AND created_at >= ? ORDER BY created_at DESC",
     )
+    .bind(today_start)
     .fetch_all(&pool)
     .await
     .map_err(db_err)?;
