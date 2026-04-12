@@ -1511,6 +1511,11 @@ button:focus-visible {
     color: var(--primary);
 }
 
+.login-logo {
+    max-height: 3rem;
+    object-fit: contain;
+}
+
 /* User selection grid */
 .login-user-select h2 {
     text-align: center;

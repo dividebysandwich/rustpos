@@ -97,7 +97,7 @@ pub fn LoginPage() -> impl IntoView {
         <div class="login-page">
             <div class="login-container">
                 <div class="login-header">
-                    <h1>"RustPOS"</h1>
+                    <img class="login-logo" src="/logo_site.png" alt="RustPOS" />
                 </div>
 
                 // Initial setup screen

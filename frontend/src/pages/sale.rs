@@ -348,7 +348,7 @@ pub fn SalePage() -> impl IntoView {
                     class=move || if active_tab.get() == "sale" { "sale-tab active" } else { "sale-tab" }
                     on:click=move |_| set_active_tab.set("sale".to_string())
                 >"Sale"</button>
-                <Show when=move || user_role.get() == "admin" fallback=|| ()>
+                <Show when=move || user_role.get() == "admin" || user_role.get() == "cashier" fallback=|| ()>
                     <button
                         class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
                         on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
