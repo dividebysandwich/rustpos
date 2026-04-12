@@ -1,0 +1,176 @@
+name: Build .deb packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-amd64:
+    name: Build amd64 .deb
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: amd64-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: amd64-cargo-
+
+      - name: Install cargo-leptos
+        run: |
+          cargo install cargo-leptos --locked || cargo install cargo-leptos
+
+      - name: Build release
+        run: cargo leptos build --release
+
+      - name: Build .deb package
+        run: bash debian/build-deb.sh amd64
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustpos-amd64-deb
+          path: rustpos_*_amd64.deb
+
+  build-arm64:
+    name: Build arm64 .deb (Raspberry Pi 3/4/5 64-bit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,aarch64-unknown-linux-gnu
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: arm64-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: arm64-cargo-
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Install cargo-leptos
+        run: |
+          cargo install cargo-leptos --locked || cargo install cargo-leptos
+
+      - name: Build WASM frontend and site assets
+        run: |
+          cargo leptos build --release
+
+      - name: Cross-compile server binary for aarch64
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+        run: |
+          cargo build --release --package rustpos --bin rustpos \
+            --target aarch64-unknown-linux-gnu \
+            --no-default-features --features ssr
+
+      - name: Build .deb package
+        run: bash debian/build-deb.sh arm64
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustpos-arm64-deb
+          path: rustpos_*_arm64.deb
+
+  build-armhf:
+    name: Build armhf .deb (Raspberry Pi 32-bit)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown,armv7-unknown-linux-gnueabihf
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: armhf-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: armhf-cargo-
+
+      - name: Install cross-compilation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+
+      - name: Install cargo-leptos
+        run: |
+          cargo install cargo-leptos --locked || cargo install cargo-leptos
+
+      - name: Build WASM frontend and site assets
+        run: |
+          cargo leptos build --release
+
+      - name: Cross-compile server binary for armv7
+        env:
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          CXX_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-g++
+        run: |
+          cargo build --release --package rustpos --bin rustpos \
+            --target armv7-unknown-linux-gnueabihf \
+            --no-default-features --features ssr
+
+      - name: Build .deb package
+        run: bash debian/build-deb.sh armhf
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustpos-armhf-deb
+          path: rustpos_*_armhf.deb
+
+  release:
+    name: Create release with .deb packages
+    needs: [build-amd64, build-arm64, build-armhf]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -lh *.deb
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.deb"
+          generate_release_notes: true

@@ -1,0 +1,26 @@
+[Unit]
+Description=RustPOS Point of Sale System
+After=network.target
+
+[Service]
+Type=simple
+User=rustpos
+Group=rustpos
+WorkingDirectory=/opt/rustpos
+ExecStart=/opt/rustpos/rustpos
+Restart=on-failure
+RestartSec=5
+Environment=RUSTPOS_PORT=3000
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/rustpos/data
+PrivateTmp=true
+
+# Allow access to serial/USB devices for receipt printer
+SupplementaryGroups=dialout
+
+[Install]
+WantedBy=multi-user.target

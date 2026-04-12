@@ -1,0 +1,40 @@
+#!/bin/bash
+set -e
+
+RUSTPOS_USER="rustpos"
+RUSTPOS_HOME="/opt/rustpos"
+
+# Create system user if it doesn't exist
+if ! id "$RUSTPOS_USER" &>/dev/null; then
+    useradd --system --home-dir "$RUSTPOS_HOME" --shell /usr/sbin/nologin \
+        --comment "RustPOS service account" "$RUSTPOS_USER"
+fi
+
+# Add user to dialout group for serial/USB printer access
+usermod -aG dialout "$RUSTPOS_USER" 2>/dev/null || true
+
+# Create data directory
+mkdir -p "$RUSTPOS_HOME/data/item_images"
+
+# Set ownership
+chown -R "$RUSTPOS_USER":"$RUSTPOS_USER" "$RUSTPOS_HOME/data"
+
+# Reload systemd and enable service
+systemctl daemon-reload
+systemctl enable rustpos.service
+
+# Start service if this is a fresh install (not upgrade)
+if [ "$1" = "configure" ] && [ -z "$2" ]; then
+    systemctl start rustpos.service || true
+fi
+
+# Restart service on upgrade
+if [ "$1" = "configure" ] && [ -n "$2" ]; then
+    systemctl restart rustpos.service || true
+fi
+
+echo ""
+echo "RustPOS has been installed successfully!"
+echo "  Service: systemctl status rustpos"
+echo "  Access:  http://localhost:3000"
+echo ""

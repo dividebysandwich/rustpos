@@ -1,0 +1,18 @@
+#!/bin/bash
+set -e
+
+systemctl daemon-reload
+
+# Only remove user and data on purge
+if [ "$1" = "purge" ]; then
+    # Remove data directory
+    rm -rf /opt/rustpos/data
+
+    # Remove user
+    if id "rustpos" &>/dev/null; then
+        userdel rustpos 2>/dev/null || true
+    fi
+
+    # Clean up empty directory
+    rmdir /opt/rustpos 2>/dev/null || true
+fi
