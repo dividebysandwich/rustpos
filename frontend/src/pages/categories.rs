@@ -6,6 +6,19 @@ use crate::server_fns::*;
 
 #[component]
 pub fn CategoriesPage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" => set_authorized.set(true),
+                _ => {
+                    #[cfg(target_arch = "wasm32")]
+                    { let _ = web_sys::window().unwrap().location().set_href("/login"); }
+                }
+            }
+        });
+    });
+
     let (categories, set_categories) = signal(Vec::<Category>::new());
     let (editing_category, set_editing_category) = signal(Option::<Category>::None);
     let (creating_category, set_creating_category) = signal(false);
@@ -77,6 +90,7 @@ pub fn CategoriesPage() -> impl IntoView {
     };
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <div>
             <div class="page-header">
                 <h2>"Categories"</h2>
@@ -152,5 +166,6 @@ pub fn CategoriesPage() -> impl IntoView {
                 </tbody>
             </table>
         </div>
+        </Show>
     }
 }

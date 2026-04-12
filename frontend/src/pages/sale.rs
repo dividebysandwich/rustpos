@@ -7,6 +7,13 @@ use crate::server_fns::*;
 
 const CURRENCY_SYMBOL: &str = "€";
 
+fn redirect_to_login() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = web_sys::window().unwrap().location().set_href("/login");
+    }
+}
+
 fn format_elapsed(created_at: DateTime<Utc>, _tick: u32) -> String {
     let elapsed = Utc::now().signed_duration_since(created_at);
     let total_secs = elapsed.num_seconds().max(0);
@@ -68,6 +75,35 @@ fn setup_tick(_set_tick: WriteSignal<u32>) {}
 
 #[component]
 pub fn SalePage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+    let (user_role, set_user_role) = signal(String::new());
+
+    // Auth check
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" || u.role == "cashier" => {
+                    set_user_role.set(u.role);
+                    set_authorized.set(true);
+                }
+                Ok(Some(u)) if u.role == "cook" => {
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        let _ = web_sys::window().unwrap().location().set_href("/kitchen");
+                    }
+                }
+                _ => redirect_to_login(),
+            }
+        });
+    });
+
+    let do_logout = move |_| {
+        leptos::task::spawn_local(async move {
+            let _ = logout().await;
+            redirect_to_login();
+        });
+    };
+
     let (categories, set_categories) = signal(Vec::<Category>::new());
     let (items, set_items) = signal(Vec::<Item>::new());
     let (selected_category, set_selected_category) = signal(Option::<Uuid>::None);
@@ -284,6 +320,7 @@ pub fn SalePage() -> impl IntoView {
     };
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <Show when=move || canceling_transaction.get().is_some() fallback=|| ()>
             {move || {
                 canceling_transaction.get().map(|_| {
@@ -311,10 +348,13 @@ pub fn SalePage() -> impl IntoView {
                     class=move || if active_tab.get() == "sale" { "sale-tab active" } else { "sale-tab" }
                     on:click=move |_| set_active_tab.set("sale".to_string())
                 >"Sale"</button>
-                <button
-                    class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
-                    on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
-                >"Kitchen"</button>
+                <Show when=move || user_role.get() == "admin" fallback=|| ()>
+                    <button
+                        class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
+                        on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
+                    >"Kitchen"</button>
+                </Show>
+                <button class="sale-tab logout-tab" on:click=do_logout>"Logout"</button>
             </div>
 
             <Show when=move || active_tab.get() == "sale" fallback=move || view! {
@@ -600,5 +640,6 @@ pub fn SalePage() -> impl IntoView {
             </div>
             </Show>
         </div>
+        </Show>
     }
 }

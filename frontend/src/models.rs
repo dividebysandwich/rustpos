@@ -96,6 +96,32 @@ pub struct SalesReport {
     pub summary: ReportSummary,
 }
 
+// User / Auth models
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct UserAccount {
+    pub id: Uuid,
+    pub username: String,
+    pub pin_hash: String,
+    pub role: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserInfo {
+    pub id: Uuid,
+    pub username: String,
+    pub role: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InitialCredentials {
+    pub username: String,
+    pub pin: String,
+}
+
 // Kitchen models
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

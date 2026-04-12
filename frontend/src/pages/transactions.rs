@@ -8,6 +8,19 @@ const CURRENCY_SYMBOL: &str = "€";
 
 #[component]
 pub fn TransactionsPage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" => set_authorized.set(true),
+                _ => {
+                    #[cfg(target_arch = "wasm32")]
+                    { let _ = web_sys::window().unwrap().location().set_href("/login"); }
+                }
+            }
+        });
+    });
+
     let (transactions, set_transactions) = signal(Vec::<Transaction>::new());
     let (show_all, set_show_all) = signal(false);
     let (selected, set_selected) = signal(Option::<Uuid>::None);
@@ -43,6 +56,7 @@ pub fn TransactionsPage() -> impl IntoView {
     };
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <div>
             <div class="page-header">
                 <h2>"Transactions"</h2>
@@ -170,5 +184,6 @@ pub fn TransactionsPage() -> impl IntoView {
                 </tbody>
             </table>
         </div>
+        </Show>
     }
 }

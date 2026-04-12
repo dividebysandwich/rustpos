@@ -1478,3 +1478,522 @@ button:focus-visible {
         gap: var(--space-sm);
     }
 }
+
+/* ============================================
+   Login Page
+   ============================================ */
+
+.login-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100dvh;
+    background: var(--light);
+    padding: var(--space-md);
+}
+
+.login-container {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-xl) var(--space-xl) var(--space-lg);
+    max-width: 480px;
+    width: 100%;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: var(--space-lg);
+}
+
+.login-header h1 {
+    font-size: 2rem;
+    color: var(--primary);
+}
+
+/* User selection grid */
+.login-user-select h2 {
+    text-align: center;
+    margin-bottom: var(--space-md);
+    font-size: 1.25rem;
+    color: var(--text-muted);
+}
+
+.user-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: var(--space-md);
+}
+
+.user-select-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-md);
+    background: var(--light);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    min-height: var(--touch-min);
+}
+
+.user-select-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.user-select-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.user-select-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+.user-select-role {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* PIN entry screen */
+.login-pin-screen {
+    text-align: center;
+}
+
+.login-welcome {
+    font-size: 1.3rem;
+    margin-bottom: var(--space-xs);
+}
+
+.login-subtitle {
+    color: var(--text-muted);
+    margin-bottom: var(--space-md);
+}
+
+.pin-display {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+    min-height: 48px;
+    align-items: center;
+    margin-bottom: var(--space-md);
+    background: var(--light);
+    border-radius: var(--radius-sm);
+    padding: var(--space-sm) var(--space-md);
+}
+
+.pin-display-small {
+    min-height: 36px;
+    margin-bottom: var(--space-sm);
+}
+
+.pin-dot {
+    font-size: 1.75rem;
+    font-weight: bold;
+    line-height: 1;
+    color: var(--text);
+}
+
+.login-error {
+    color: var(--danger);
+    background: var(--danger-light);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-md);
+    font-size: 0.9rem;
+}
+
+.pin-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-sm);
+    max-width: 320px;
+    margin: 0 auto var(--space-md);
+}
+
+.pin-pad-small {
+    max-width: 260px;
+}
+
+.pin-btn {
+    padding: var(--space-md);
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: var(--light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    min-height: 60px;
+    transition: all 0.1s ease;
+    color: var(--text);
+}
+
+.pin-btn:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+.pin-btn:active {
+    transform: scale(0.95);
+    background: var(--primary);
+    color: #fff;
+}
+
+.pin-btn-sm {
+    padding: var(--space-sm);
+    font-size: 1.2rem;
+    min-height: 48px;
+}
+
+.pin-btn-clear {
+    background: var(--warning-light);
+    color: var(--warning);
+    font-size: 1rem;
+}
+
+.pin-btn-ok {
+    background: var(--success);
+    color: #fff;
+    font-size: 1rem;
+}
+
+.pin-btn-ok:hover {
+    background: #059669;
+}
+
+.pin-btn-ok:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.login-back-btn {
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: var(--space-sm) var(--space-md);
+    cursor: pointer;
+}
+
+.login-back-btn:hover {
+    color: var(--primary);
+}
+
+/* Initial setup screen */
+.setup-screen {
+    text-align: center;
+}
+
+.setup-screen h2 {
+    margin-bottom: var(--space-md);
+}
+
+.setup-info {
+    color: var(--text-muted);
+    margin-bottom: var(--space-lg);
+}
+
+.setup-credentials {
+    background: var(--light);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-lg);
+}
+
+.setup-field {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) 0;
+    font-size: 1.1rem;
+}
+
+.setup-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.setup-value {
+    font-weight: 700;
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+}
+
+.setup-warning {
+    color: var(--warning);
+    font-size: 0.9rem;
+    margin-bottom: var(--space-lg);
+}
+
+.setup-continue {
+    width: 100%;
+    padding: var(--space-md);
+    font-size: 1.1rem;
+}
+
+/* Logout tab */
+.logout-tab {
+    margin-left: auto;
+    color: var(--danger) !important;
+    background: var(--danger-light) !important;
+}
+
+.logout-tab:hover {
+    background: var(--danger) !important;
+    color: #fff !important;
+}
+
+/* ============================================
+   Admin / User Management Page
+   ============================================ */
+
+.admin-page {
+    padding: var(--space-lg) 0;
+}
+
+.admin-page h2 {
+    margin-bottom: var(--space-lg);
+}
+
+.admin-error {
+    color: var(--danger);
+    background: var(--danger-light);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-md);
+}
+
+.admin-user-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+}
+
+.admin-user-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-md) var(--space-lg);
+}
+
+.admin-user-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+}
+
+.admin-user-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.admin-user-role {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    background: var(--light);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+}
+
+.admin-user-actions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.admin-add-btn {
+    width: 100%;
+    padding: var(--space-md);
+    font-size: 1.1rem;
+}
+
+.btn-primary-small {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--primary);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: var(--touch-min);
+}
+
+.btn-danger-small {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--danger);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: var(--touch-min);
+}
+
+.btn-secondary-small {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--btn-neutral);
+    color: var(--btn-neutral-text);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    min-height: var(--touch-min);
+}
+
+/* Admin form */
+.admin-form {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+}
+
+.admin-form h3 {
+    margin-bottom: var(--space-md);
+}
+
+.admin-form-field {
+    margin-bottom: var(--space-md);
+}
+
+.admin-form-field label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.admin-input-row {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.admin-input-row input {
+    flex: 1;
+}
+
+.admin-role-buttons {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.role-btn {
+    flex: 1;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--light);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    min-height: var(--touch-min);
+    transition: all 0.15s ease;
+    color: var(--text);
+}
+
+.role-btn:hover {
+    border-color: var(--primary);
+}
+
+.role-btn-active {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.admin-form-actions {
+    display: flex;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+}
+
+.admin-form-actions button {
+    flex: 1;
+    padding: var(--space-md);
+    font-size: 1rem;
+}
+
+/* ============================================
+   On-Screen Keyboard
+   ============================================ */
+
+.osk {
+    background: var(--light);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    margin-bottom: var(--space-md);
+}
+
+.osk-row {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.osk-key {
+    min-width: 36px;
+    min-height: var(--touch-min);
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    flex: 0 1 auto;
+    color: var(--text);
+}
+
+.osk-key:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+}
+
+.osk-key:active {
+    background: var(--primary);
+    color: #fff;
+    transform: scale(0.95);
+}
+
+.osk-key-wide {
+    min-width: 64px;
+    font-size: 0.85rem;
+}
+
+.osk-key-space {
+    flex: 1;
+    min-width: 200px;
+}
+
+.osk-key-active {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary-dark);
+}
+
+.osk-key-active:hover {
+    background: var(--primary-dark);
+}
+
+/* Loading indicator */
+.loading {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-muted);
+}

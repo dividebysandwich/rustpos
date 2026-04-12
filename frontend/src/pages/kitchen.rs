@@ -70,8 +70,36 @@ fn format_elapsed(created_at: DateTime<Utc>, _tick: u32) -> String {
     format!("{}:{:02}", mins, secs)
 }
 
+fn redirect_to_login() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = web_sys::window().unwrap().location().set_href("/login");
+    }
+}
+
 #[component]
 pub fn KitchenPage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+
+    // Auth check
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" || u.role == "cook" => {
+                    set_authorized.set(true);
+                }
+                _ => redirect_to_login(),
+            }
+        });
+    });
+
+    let do_logout = move |_| {
+        leptos::task::spawn_local(async move {
+            let _ = logout().await;
+            redirect_to_login();
+        });
+    };
+
     let (orders, set_orders) = signal(Vec::<KitchenOrder>::new());
     let (completed_orders, set_completed_orders) = signal(Vec::<KitchenOrder>::new());
     let (show_completed, set_show_completed) = signal(false);
@@ -172,6 +200,7 @@ pub fn KitchenPage() -> impl IntoView {
     };
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <div class="kitchen-page">
             <div class="kitchen-header">
                 <h1>"Kitchen Display"</h1>
@@ -181,6 +210,7 @@ pub fn KitchenPage() -> impl IntoView {
                         on:click=toggle_completed
                     >{move || if show_completed.get() { "Hide Completed" } else { "Show Completed" }}</button>
                     <button class="btn-primary kitchen-header-btn" on:click=move |_| set_reload.update(|v| *v += 1)>"Refresh"</button>
+                    <button class="btn-secondary kitchen-header-btn" on:click=do_logout>"Logout"</button>
                 </div>
             </div>
 
@@ -273,5 +303,6 @@ pub fn KitchenPage() -> impl IntoView {
                 </Show>
             </Show>
         </div>
+        </Show>
     }
 }

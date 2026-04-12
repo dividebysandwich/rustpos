@@ -15,6 +15,55 @@ fn not_found(msg: &str) -> ServerFnError {
 }
 
 #[cfg(feature = "ssr")]
+fn hash_pin(pin: &str) -> String {
+    use sha2::{Sha256, Digest};
+    let mut hasher = Sha256::new();
+    hasher.update(pin.as_bytes());
+    format!("{:x}", hasher.finalize())
+}
+
+#[cfg(feature = "ssr")]
+fn extract_session_token(headers: &axum::http::HeaderMap) -> Option<String> {
+    let cookie_str = headers
+        .get(axum::http::header::COOKIE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    cookie_str
+        .split(';')
+        .filter_map(|c| c.trim().strip_prefix("rustpos_session=").map(|s| s.to_string()))
+        .next()
+}
+
+#[cfg(feature = "ssr")]
+async fn get_authenticated_user(pool: &sqlx::SqlitePool) -> Result<Option<UserAccount>, ServerFnError> {
+    let Ok(headers) = leptos_axum::extract::<axum::http::HeaderMap>().await else {
+        return Ok(None);
+    };
+    let Some(token) = extract_session_token(&headers) else {
+        return Ok(None);
+    };
+    let user = sqlx::query_as::<_, UserAccount>(
+        "SELECT u.* FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?",
+    )
+    .bind(&token)
+    .bind(Utc::now())
+    .fetch_optional(pool)
+    .await
+    .map_err(db_err)?;
+    Ok(user)
+}
+
+#[cfg(feature = "ssr")]
+async fn require_admin(pool: &sqlx::SqlitePool) -> Result<UserAccount, ServerFnError> {
+    let user = get_authenticated_user(pool).await?
+        .ok_or_else(|| not_found("Not authenticated"))?;
+    if user.role != "admin" {
+        return Err(not_found("Admin access required"));
+    }
+    Ok(user)
+}
+
+#[cfg(feature = "ssr")]
 async fn update_transaction_total_db(
     pool: &sqlx::SqlitePool,
     transaction_id: Uuid,
@@ -1029,4 +1078,251 @@ pub async fn fetch_completed_kitchen_orders() -> Result<Vec<KitchenOrder>, Serve
         }
     }
     Ok(orders)
+}
+
+// ---- Auth Server Functions ----
+
+#[server]
+pub async fn get_current_user() -> Result<Option<UserInfo>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let user = get_authenticated_user(&pool).await?;
+    Ok(user.map(|u| UserInfo {
+        id: u.id,
+        username: u.username,
+        role: u.role,
+    }))
+}
+
+#[server]
+pub async fn fetch_user_list() -> Result<Vec<UserInfo>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let users = sqlx::query_as::<_, UserAccount>("SELECT * FROM users ORDER BY username")
+        .fetch_all(&pool)
+        .await
+        .map_err(db_err)?;
+    Ok(users
+        .into_iter()
+        .map(|u| UserInfo {
+            id: u.id,
+            username: u.username,
+            role: u.role,
+        })
+        .collect())
+}
+
+#[server]
+pub async fn login(user_id: Uuid, pin: String) -> Result<UserInfo, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let user = sqlx::query_as::<_, UserAccount>("SELECT * FROM users WHERE id = ?")
+        .bind(user_id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| not_found("User not found"))?;
+
+    let pin_hash = hash_pin(&pin);
+    if user.pin_hash != pin_hash {
+        return Err(not_found("Invalid PIN"));
+    }
+
+    let session_id = Uuid::new_v4();
+    let token = Uuid::new_v4().to_string();
+    let now = Utc::now();
+    let expires = now + chrono::Duration::days(30);
+
+    sqlx::query(
+        "INSERT INTO sessions (id, user_id, token, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(session_id)
+    .bind(user.id)
+    .bind(&token)
+    .bind(now)
+    .bind(expires)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let response_options = expect_context::<leptos_axum::ResponseOptions>();
+    response_options.insert_header(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(&format!(
+            "rustpos_session={}; Path=/; HttpOnly; SameSite=Lax; Max-Age=2592000",
+            token
+        ))
+        .unwrap(),
+    );
+
+    Ok(UserInfo {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+    })
+}
+
+#[server]
+pub async fn logout() -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let Ok(headers) = leptos_axum::extract::<axum::http::HeaderMap>().await else {
+        return Ok(());
+    };
+
+    if let Some(token) = extract_session_token(&headers) {
+        sqlx::query("DELETE FROM sessions WHERE token = ?")
+            .bind(&token)
+            .execute(&pool)
+            .await
+            .map_err(db_err)?;
+    }
+
+    let response_options = expect_context::<leptos_axum::ResponseOptions>();
+    response_options.insert_header(
+        axum::http::header::SET_COOKIE,
+        axum::http::HeaderValue::from_str(
+            "rustpos_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0",
+        )
+        .unwrap(),
+    );
+
+    Ok(())
+}
+
+#[server]
+pub async fn check_initial_setup() -> Result<Option<InitialCredentials>, ServerFnError> {
+    let content = std::fs::read_to_string("data/initial_credentials.txt").ok();
+    match content {
+        Some(s) => {
+            let mut lines = s.lines();
+            let username = lines.next().unwrap_or("admin").to_string();
+            let pin = lines.next().unwrap_or("").to_string();
+            Ok(Some(InitialCredentials { username, pin }))
+        }
+        None => Ok(None),
+    }
+}
+
+#[server]
+pub async fn acknowledge_setup() -> Result<(), ServerFnError> {
+    let _ = std::fs::remove_file("data/initial_credentials.txt");
+    Ok(())
+}
+
+#[server]
+pub async fn create_user_account(
+    username: String,
+    pin: String,
+    role: String,
+) -> Result<UserInfo, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    if !["admin", "cashier", "cook"].contains(&role.as_str()) {
+        return Err(not_found("Invalid role"));
+    }
+    if pin.len() < 4 || !pin.chars().all(|c| c.is_ascii_digit()) {
+        return Err(not_found("PIN must be at least 4 digits"));
+    }
+
+    let id = Uuid::new_v4();
+    let now = Utc::now();
+    let pin_hash = hash_pin(&pin);
+
+    let user = sqlx::query_as::<_, UserAccount>(
+        "INSERT INTO users (id, username, pin_hash, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
+    )
+    .bind(id)
+    .bind(&username)
+    .bind(&pin_hash)
+    .bind(&role)
+    .bind(now)
+    .bind(now)
+    .fetch_one(&pool)
+    .await
+    .map_err(db_err)?;
+
+    Ok(UserInfo {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+    })
+}
+
+#[server]
+pub async fn update_user_account(
+    id: Uuid,
+    username: Option<String>,
+    pin: Option<String>,
+    role: Option<String>,
+) -> Result<UserInfo, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    let mut user = sqlx::query_as::<_, UserAccount>("SELECT * FROM users WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| not_found("User not found"))?;
+
+    if let Some(n) = username {
+        user.username = n;
+    }
+    if let Some(p) = pin {
+        if p.len() < 4 || !p.chars().all(|c| c.is_ascii_digit()) {
+            return Err(not_found("PIN must be at least 4 digits"));
+        }
+        user.pin_hash = hash_pin(&p);
+    }
+    if let Some(r) = role {
+        if !["admin", "cashier", "cook"].contains(&r.as_str()) {
+            return Err(not_found("Invalid role"));
+        }
+        user.role = r;
+    }
+    user.updated_at = Utc::now();
+
+    let updated = sqlx::query_as::<_, UserAccount>(
+        "UPDATE users SET username = ?, pin_hash = ?, role = ?, updated_at = ? WHERE id = ? RETURNING *",
+    )
+    .bind(&user.username)
+    .bind(&user.pin_hash)
+    .bind(&user.role)
+    .bind(user.updated_at)
+    .bind(id)
+    .fetch_one(&pool)
+    .await
+    .map_err(db_err)?;
+
+    Ok(UserInfo {
+        id: updated.id,
+        username: updated.username,
+        role: updated.role,
+    })
+}
+
+#[server]
+pub async fn delete_user_account(id: Uuid) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let admin = require_admin(&pool).await?;
+
+    if admin.id == id {
+        return Err(not_found("Cannot delete your own account"));
+    }
+
+    sqlx::query("DELETE FROM sessions WHERE user_id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+    let result = sqlx::query("DELETE FROM users WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+    if result.rows_affected() == 0 {
+        return Err(not_found("User not found"));
+    }
+    Ok(())
 }

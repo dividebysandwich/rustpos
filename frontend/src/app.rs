@@ -6,7 +6,9 @@ use leptos_router::{
     StaticSegment,
 };
 
+use crate::models::UserInfo;
 use crate::pages::*;
+use crate::server_fns::*;
 
 #[cfg(feature = "ssr")]
 pub fn shell(options: LeptosOptions) -> impl IntoView {
@@ -32,13 +34,27 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     let (dark_mode, set_dark_mode) = signal(false);
+    let (current_user, set_current_user) = signal(Option::<UserInfo>::None);
 
     Effect::new(move || {
         if dark_mode.get() {
-            document().document_element().map(|el| el.set_attribute("data-theme", "dark"));
+            document()
+                .document_element()
+                .map(|el| el.set_attribute("data-theme", "dark"));
         } else {
-            document().document_element().map(|el| el.remove_attribute("data-theme"));
+            document()
+                .document_element()
+                .map(|el| el.remove_attribute("data-theme"));
         }
+    });
+
+    // Fetch current user for navbar
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(Some(u)) = get_current_user().await {
+                set_current_user.set(Some(u));
+            }
+        });
     });
 
     view! {
@@ -46,7 +62,7 @@ pub fn App() -> impl IntoView {
         <Title text="RustPOS"/>
 
         <Router>
-            <AppNavbar dark_mode set_dark_mode />
+            <AppNavbar dark_mode set_dark_mode current_user />
 
             <main class="container">
                 <Routes fallback=|| "Page not found">
@@ -56,6 +72,8 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("categories") view=CategoriesPage/>
                     <Route path=StaticSegment("reports") view=ReportsPage/>
                     <Route path=StaticSegment("kitchen") view=KitchenPage/>
+                    <Route path=StaticSegment("login") view=LoginPage/>
+                    <Route path=StaticSegment("admin") view=AdminPage/>
                 </Routes>
             </main>
         </Router>
@@ -63,21 +81,36 @@ pub fn App() -> impl IntoView {
 }
 
 #[component]
-fn AppNavbar(dark_mode: ReadSignal<bool>, set_dark_mode: WriteSignal<bool>) -> impl IntoView {
+fn AppNavbar(
+    dark_mode: ReadSignal<bool>,
+    set_dark_mode: WriteSignal<bool>,
+    current_user: ReadSignal<Option<UserInfo>>,
+) -> impl IntoView {
     let location = use_location();
     let is_kitchen = move || location.pathname.get().starts_with("/kitchen");
+    let is_login = move || location.pathname.get().starts_with("/login");
 
     view! {
-        <Show when=move || !is_kitchen() fallback=|| ()>
+        <Show when=move || !is_kitchen() && !is_login() fallback=|| ()>
             <nav class="navbar">
                 <div class="nav-container">
                     <img class="sitelogo" src="/logo_site.png"/>
                     <div class="nav-links">
-                        <A href="/">"Sale"</A>
-                        <A href="/transactions">"Transactions"</A>
-                        <A href="/items">"Items"</A>
-                        <A href="/categories">"Categories"</A>
-                        <A href="/reports">"Reports"</A>
+                        {move || {
+                            let user = current_user.get();
+                            let role = user.as_ref().map(|u| u.role.as_str()).unwrap_or("");
+                            let is_admin = role == "admin";
+                            view! {
+                                <A href="/">"Sale"</A>
+                                <Show when=move || is_admin fallback=|| ()>
+                                    <A href="/transactions">"Transactions"</A>
+                                    <A href="/items">"Items"</A>
+                                    <A href="/categories">"Categories"</A>
+                                    <A href="/reports">"Reports"</A>
+                                    <A href="/admin">"Users"</A>
+                                </Show>
+                            }
+                        }}
                     </div>
                     <button
                         class="dark-mode-toggle"

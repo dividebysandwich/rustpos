@@ -6,6 +6,13 @@ use crate::server_fns::*;
 
 const CURRENCY_SYMBOL: &str = "€";
 
+fn redirect_to_login_reports() {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = web_sys::window().unwrap().location().set_href("/login");
+    }
+}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn trigger_csv_download(_csv: &str, _filename: &str) {}
 
@@ -22,6 +29,16 @@ fn trigger_csv_download(csv: &str, filename: &str) {
 
 #[component]
 pub fn ReportsPage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" => set_authorized.set(true),
+                _ => redirect_to_login_reports(),
+            }
+        });
+    });
+
     let (report, set_report) = signal(Option::<SalesReport>::None);
     let (report_type, set_report_type) = signal(String::from("daily"));
     let (start_date, set_start_date) = signal(String::new());
@@ -76,6 +93,7 @@ pub fn ReportsPage() -> impl IntoView {
     Effect::new(move || { load_report("daily".to_string()); });
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <div class="reports-page">
             <h2>"Sales Reports"</h2>
 
@@ -199,5 +217,6 @@ pub fn ReportsPage() -> impl IntoView {
                 }}
             </Show>
         </div>
+        </Show>
     }
 }

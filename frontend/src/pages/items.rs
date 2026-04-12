@@ -59,6 +59,19 @@ fn handle_image_file(ev: leptos::ev::Event, set_image_preview: WriteSignal<Optio
 
 #[component]
 pub fn ItemsPage() -> impl IntoView {
+    let (authorized, set_authorized) = signal(false);
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            match get_current_user().await {
+                Ok(Some(u)) if u.role == "admin" => set_authorized.set(true),
+                _ => {
+                    #[cfg(target_arch = "wasm32")]
+                    { let _ = web_sys::window().unwrap().location().set_href("/login"); }
+                }
+            }
+        });
+    });
+
     let (items, set_items) = signal(Vec::<Item>::new());
     let (categories, set_categories) = signal(Vec::<Category>::new());
     let (editing_item, set_editing_item) = signal(Option::<Item>::None);
@@ -189,6 +202,7 @@ pub fn ItemsPage() -> impl IntoView {
     let remove_image = move |_| { set_image_preview.set(None); };
 
     view! {
+        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
         <div>
             <div class="page-header">
                 <h2>"Items"</h2>
@@ -326,5 +340,6 @@ pub fn ItemsPage() -> impl IntoView {
                 </tbody>
             </table>
         </div>
+        </Show>
     }
 }

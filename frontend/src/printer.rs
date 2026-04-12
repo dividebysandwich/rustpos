@@ -32,6 +32,31 @@ pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
     Err("No ESC/POS printer found on serial ports".into())
 }
 
+pub fn print_credentials(
+    printer: &mut Printer,
+    username: &str,
+    pin: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    printer.init()?;
+    printer.align(Alignment::Center)?;
+    printer.bold(true)?;
+    printer.text("================================\n")?;
+    printer.text("  RustPOS Initial Setup\n")?;
+    printer.text("================================\n")?;
+    printer.bold(false)?;
+    printer.feed(1)?;
+    printer.align(Alignment::Left)?;
+    printer.text(&format!("  Username: {}\n", username))?;
+    printer.text(&format!("  PIN:      {}\n", pin))?;
+    printer.feed(1)?;
+    printer.align(Alignment::Center)?;
+    printer.text("Please change your PIN\n")?;
+    printer.text("after first login.\n")?;
+    printer.feed(4)?;
+    printer.cut()?;
+    Ok(())
+}
+
 pub fn print_receipt(
     printer: &mut Printer,
     items: Vec<(String, u32, f32)>,
