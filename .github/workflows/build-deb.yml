@@ -16,6 +16,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libudev-dev
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -68,10 +73,14 @@ jobs:
           key: arm64-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: arm64-cargo-
 
-      - name: Install cross-compilation tools
+      - name: Install system and cross-compilation dependencies
         run: |
+          sudo dpkg --add-architecture arm64
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list.d/*.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ $(lsb_release -cs) main restricted universe" | sudo tee /etc/apt/sources.list.d/arm64.list
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ $(lsb_release -cs)-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/arm64.list
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          sudo apt-get install -y pkg-config libudev-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev:arm64
 
       - name: Install cargo-leptos
         run: |
@@ -86,6 +95,8 @@ jobs:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
           CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+          PKG_CONFIG_SYSROOT_DIR: /usr/aarch64-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
         run: |
           cargo build --release --package rustpos --bin rustpos \
             --target aarch64-unknown-linux-gnu \
@@ -121,10 +132,14 @@ jobs:
           key: armhf-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: armhf-cargo-
 
-      - name: Install cross-compilation tools
+      - name: Install system and cross-compilation dependencies
         run: |
+          sudo dpkg --add-architecture armhf
+          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list.d/*.list
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ $(lsb_release -cs) main restricted universe" | sudo tee /etc/apt/sources.list.d/armhf.list
+          echo "deb [arch=armhf] http://ports.ubuntu.com/ $(lsb_release -cs)-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/armhf.list
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
+          sudo apt-get install -y pkg-config libudev-dev gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libudev-dev:armhf
 
       - name: Install cargo-leptos
         run: |
@@ -139,6 +154,8 @@ jobs:
           CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
           CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
           CXX_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-g++
+          PKG_CONFIG_SYSROOT_DIR: /usr/arm-linux-gnueabihf
+          PKG_CONFIG_PATH: /usr/lib/arm-linux-gnueabihf/pkgconfig
         run: |
           cargo build --release --package rustpos --bin rustpos \
             --target armv7-unknown-linux-gnueabihf \

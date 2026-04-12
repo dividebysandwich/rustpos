@@ -69,7 +69,7 @@ Version: ${VERSION}
 Architecture: ${ARCH}
 Maintainer: RustPOS Contributors
 Installed-Size: ${INSTALLED_SIZE}
-Depends: libc6, libgcc-s1, libssl3 | libssl1.1
+Depends: libc6, libgcc-s1, libssl3 | libssl1.1, libudev1
 Description: RustPOS Point of Sale System
  A modern, touch-friendly point of sale system built with Rust.
  Features include sales management, kitchen display, receipt printing,
