@@ -5,8 +5,6 @@ use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
-const CURRENCY_SYMBOL: &str = "€";
-
 #[cfg(not(target_arch = "wasm32"))]
 fn handle_image_file(_ev: leptos::ev::Event, _set: WriteSignal<Option<String>>) {}
 
@@ -61,6 +59,7 @@ fn handle_image_file(ev: leptos::ev::Event, set_image_preview: WriteSignal<Optio
 #[component]
 pub fn ItemsPage() -> impl IntoView {
     let i18n = expect_context::<RwSignal<I18n>>();
+    let currency = expect_context::<RwSignal<String>>();
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -334,7 +333,7 @@ pub fn ItemsPage() -> impl IntoView {
                                         {item.image_path.clone().map(|path| view! { <img class="item-thumb" src=path alt="" /> })}
                                     </td>
                                     <td>{item.name.clone()}</td>
-                                    <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.price)}</td>
+                                    <td>{format!("{} {:.2}", &currency.get(), item.price)}</td>
                                     <td>{category_name}</td>
                                     <td>{stock_display}</td>
                                     <td>{if item.kitchen_item { i18n.get().t("general.yes") } else { "-".to_string() }}</td>

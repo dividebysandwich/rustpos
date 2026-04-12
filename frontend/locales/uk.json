@@ -7,7 +7,6 @@
   "nav.users": "Користувачі",
   "nav.light_mode": "Перейти на світлу тему",
   "nav.dark_mode": "Перейти на темну тему",
-
   "general.loading": "Завантаження...",
   "general.page_not_found": "Сторінку не знайдено",
   "general.walkin": "Відвідувач",
@@ -21,11 +20,9 @@
   "general.unknown": "Невідомо",
   "general.name": "Назва",
   "general.description": "Опис",
-
   "role.admin": "Адміністратор",
   "role.cashier": "Касир",
   "role.cook": "Кухар",
-
   "setup.select_language": "Оберіть мову",
   "setup.initial_setup": "Початкове налаштування",
   "setup.admin_created": "Обліковий запис адміністратора створено. Збережіть ці облікові дані:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Будь ласка, змініть свій PIN після входу.",
   "setup.continue_login": "Перейти до входу",
-
   "login.select_user": "Оберіть користувача",
   "login.enter_pin": "Введіть свій PIN",
   "login.welcome": "Ласкаво просимо, {name}",
   "login.clear": "Очистити",
   "login.ok": "OK",
   "login.back": "Назад",
-
   "sale.sale": "Продаж",
   "sale.kitchen": "Кухня",
   "sale.logout": "Вийти",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Замовлення на кухню",
   "sale.no_kitchen_orders": "Немає очікуваних замовлень на кухню",
   "sale.complete": "Завершити",
-
   "kitchen.title": "Дисплей кухні",
   "kitchen.hide_completed": "Сховати завершені",
   "kitchen.show_completed": "Показати завершені",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Замовлення завершено",
   "kitchen.completed_orders": "Завершені замовлення",
   "kitchen.no_completed": "Завершених замовлень ще немає",
-
   "admin.user_management": "Управління користувачами",
   "admin.add_user": "Додати користувача",
   "admin.create_user": "Створити нового користувача",
@@ -103,7 +96,6 @@
   "admin.language": "Мова",
   "admin.language_setting": "Налаштування мови",
   "admin.language_changed": "Мову змінено. Перезавантаження...",
-
   "items.title": "Товари",
   "items.add_item": "Додати новий товар",
   "items.create_item": "Створити новий товар",
@@ -124,14 +116,12 @@
   "items.out": "Немає",
   "items.confirm_delete": "Ви впевнені, що хочете видалити \"{name}\"?",
   "items.upload": "Завантажити",
-
   "categories.title": "Категорії",
   "categories.add": "Додати нову категорію",
   "categories.create": "Створити нову категорію",
   "categories.edit": "Редагувати категорію",
   "categories.confirm_delete": "Ви впевнені, що хочете видалити категорію \"{name}\"?",
   "categories.delete_warning": "Увага: товари в цій категорії НЕ будуть видалені, але їх може бути складніше знайти.",
-
   "transactions.title": "Транзакції",
   "transactions.show_all": "Показати всі",
   "transactions.show_open": "Показати лише відкриті",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Разом: ",
   "transactions.paid": "Сплачено: ",
   "transactions.change": "Решта: ",
-
   "reports.title": "Звіти з продажів",
   "reports.today": "Сьогодні",
   "reports.monthly": "Останні 30 днів",
@@ -174,9 +163,14 @@
   "reports.revenue": "Дохід",
   "reports.avg_price": "Середня ціна",
   "reports.total": "Разом",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Пробіл",
-  "keyboard.enter": "Введення"
+  "keyboard.enter": "Введення",
+  "currency.title": "Валюта",
+  "currency.select": "Оберіть валюту",
+  "currency.custom": "Власний символ",
+  "currency.custom_placeholder": "напр. kr, CHF, $",
+  "currency.set": "Встановити",
+  "currency.setting": "Налаштування валюти"
 }

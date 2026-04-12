@@ -39,6 +39,43 @@ impl I18n {
     }
 }
 
+/// Preset currencies: (symbol, label).
+/// The list is based on the supported localization regions.
+pub fn available_currencies() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("\u{20ac}", "EUR \u{20ac}"),   // Euro
+        ("$", "USD $"),                  // US Dollar
+        ("\u{00a3}", "GBP \u{00a3}"),   // British Pound
+        ("R$", "BRL R$"),               // Brazilian Real
+        ("\u{20b9}", "INR \u{20b9}"),   // Indian Rupee
+        ("K\u{10d}", "CZK K\u{10d}"),  // Czech Koruna
+        ("Ft", "HUF Ft"),              // Hungarian Forint
+        ("z\u{142}", "PLN z\u{142}"),  // Polish Zloty
+        ("lei", "RON lei"),             // Romanian Leu
+        ("\u{20b4}", "UAH \u{20b4}"),  // Ukrainian Hryvnia
+        ("CHF", "CHF"),                 // Swiss Franc
+    ]
+}
+
+/// Return the default currency symbol for a given language code.
+pub fn default_currency_for_language(lang: &str) -> &'static str {
+    match lang {
+        "en" => "$",
+        "es" => "\u{20ac}",
+        "de" => "\u{20ac}",
+        "fr" => "\u{20ac}",
+        "pt" => "R$",
+        "hi" => "\u{20b9}",
+        "cs" => "K\u{10d}",
+        "it" => "\u{20ac}",
+        "hu" => "Ft",
+        "pl" => "z\u{142}",
+        "ro" => "lei",
+        "uk" => "\u{20b4}",
+        _ => "\u{20ac}",
+    }
+}
+
 pub fn available_languages() -> Vec<(&'static str, &'static str)> {
     vec![
         ("en", "English"),

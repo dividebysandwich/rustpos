@@ -37,7 +37,9 @@ pub fn App() -> impl IntoView {
     let (dark_mode, set_dark_mode) = signal(false);
     let (current_user, set_current_user) = signal(Option::<UserInfo>::None);
     let i18n = RwSignal::new(I18n::new("en"));
+    let currency = RwSignal::new("\u{20ac}".to_string());
     provide_context(i18n);
+    provide_context(currency);
 
     Effect::new(move || {
         if dark_mode.get() {
@@ -51,11 +53,14 @@ pub fn App() -> impl IntoView {
         }
     });
 
-    // Fetch language + current user
+    // Fetch language, currency + current user
     Effect::new(move || {
         leptos::task::spawn_local(async move {
             if let Ok(Some(lang)) = get_config_language().await {
                 i18n.set(I18n::new(&lang));
+            }
+            if let Ok(Some(cur)) = get_config_currency().await {
+                currency.set(cur);
             }
             if let Ok(Some(u)) = get_current_user().await {
                 set_current_user.set(Some(u));

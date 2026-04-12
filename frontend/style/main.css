@@ -2066,3 +2066,79 @@ button:focus-visible {
 .admin-language-section h3 {
     margin-bottom: var(--space-md);
 }
+
+/* ============================================
+   Currency Selection
+   ============================================ */
+
+.currency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.currency-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
+    background: var(--light);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    min-height: var(--touch-min);
+    transition: all 0.15s ease;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.currency-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.currency-btn:active {
+    transform: scale(0.97);
+}
+
+.currency-btn-active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+
+.currency-btn-default {
+    border-color: var(--success);
+    background: var(--success-light);
+}
+
+.currency-custom {
+    margin-top: var(--space-md);
+}
+
+.currency-custom label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.currency-custom-row {
+    display: flex;
+    gap: var(--space-sm);
+    max-width: 320px;
+}
+
+.currency-custom-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.currency-custom-row button {
+    white-space: nowrap;
+}

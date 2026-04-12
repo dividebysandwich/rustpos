@@ -178,5 +178,12 @@
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Space",
-  "keyboard.enter": "Enter"
+  "keyboard.enter": "Enter",
+
+  "currency.title": "Currency",
+  "currency.select": "Select Currency",
+  "currency.custom": "Custom symbol",
+  "currency.custom_placeholder": "e.g. kr, CHF, $",
+  "currency.set": "Set",
+  "currency.setting": "Currency Setting"
 }

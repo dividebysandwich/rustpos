@@ -7,7 +7,6 @@
   "nav.users": "उपयोगकर्ता",
   "nav.light_mode": "लाइट मोड में बदलें",
   "nav.dark_mode": "डार्क मोड में बदलें",
-
   "general.loading": "लोड हो रहा है...",
   "general.page_not_found": "पृष्ठ नहीं मिला",
   "general.walkin": "वॉक-इन",
@@ -21,11 +20,9 @@
   "general.unknown": "अज्ञात",
   "general.name": "नाम",
   "general.description": "विवरण",
-
   "role.admin": "व्यवस्थापक",
   "role.cashier": "कैशियर",
   "role.cook": "रसोइया",
-
   "setup.select_language": "भाषा चुनें",
   "setup.initial_setup": "प्रारंभिक सेटअप",
   "setup.admin_created": "एक व्यवस्थापक खाता बनाया गया है। कृपया ये क्रेडेंशियल सहेजें:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "कृपया लॉग इन करने के बाद अपना PIN बदलें।",
   "setup.continue_login": "लॉगिन पर जाएं",
-
   "login.select_user": "उपयोगकर्ता चुनें",
   "login.enter_pin": "अपना PIN दर्ज करें",
   "login.welcome": "स्वागत है, {name}",
   "login.clear": "साफ करें",
   "login.ok": "ठीक है",
   "login.back": "वापस",
-
   "sale.sale": "बिक्री",
   "sale.kitchen": "रसोई",
   "sale.logout": "लॉग आउट",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "रसोई के ऑर्डर",
   "sale.no_kitchen_orders": "कोई लंबित रसोई ऑर्डर नहीं",
   "sale.complete": "पूर्ण",
-
   "kitchen.title": "रसोई डिस्प्ले",
   "kitchen.hide_completed": "पूर्ण छिपाएं",
   "kitchen.show_completed": "पूर्ण दिखाएं",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "ऑर्डर पूर्ण",
   "kitchen.completed_orders": "पूर्ण किए गए ऑर्डर",
   "kitchen.no_completed": "अभी तक कोई पूर्ण ऑर्डर नहीं",
-
   "admin.user_management": "उपयोगकर्ता प्रबंधन",
   "admin.add_user": "उपयोगकर्ता जोड़ें",
   "admin.create_user": "नया उपयोगकर्ता बनाएं",
@@ -103,7 +96,6 @@
   "admin.language": "भाषा",
   "admin.language_setting": "भाषा सेटिंग",
   "admin.language_changed": "भाषा बदल दी गई। पुनः लोड हो रहा है...",
-
   "items.title": "वस्तुएं",
   "items.add_item": "नई वस्तु जोड़ें",
   "items.create_item": "नई वस्तु बनाएं",
@@ -124,14 +116,12 @@
   "items.out": "समाप्त",
   "items.confirm_delete": "क्या आप वाकई \"{name}\" को हटाना चाहते हैं?",
   "items.upload": "अपलोड",
-
   "categories.title": "श्रेणियां",
   "categories.add": "नई श्रेणी जोड़ें",
   "categories.create": "नई श्रेणी बनाएं",
   "categories.edit": "श्रेणी संपादित करें",
   "categories.confirm_delete": "क्या आप वाकई श्रेणी \"{name}\" को हटाना चाहते हैं?",
   "categories.delete_warning": "चेतावनी: इससे इस श्रेणी की वस्तुएं नहीं हटेंगी, लेकिन उन्हें ढूंढना कठिन हो सकता है।",
-
   "transactions.title": "लेन-देन",
   "transactions.show_all": "सभी दिखाएं",
   "transactions.show_open": "केवल खुले दिखाएं",
@@ -147,7 +137,6 @@
   "transactions.total_label": "कुल: ",
   "transactions.paid": "भुगतान: ",
   "transactions.change": "वापसी: ",
-
   "reports.title": "बिक्री रिपोर्ट",
   "reports.today": "आज",
   "reports.monthly": "पिछले 30 दिन",
@@ -174,9 +163,14 @@
   "reports.revenue": "राजस्व",
   "reports.avg_price": "औसत मूल्य",
   "reports.total": "कुल",
-
   "keyboard.shift": "शिफ्ट",
   "keyboard.bksp": "बैकस्पेस",
   "keyboard.space": "स्पेस",
-  "keyboard.enter": "एंटर"
+  "keyboard.enter": "एंटर",
+  "currency.title": "मुद्रा",
+  "currency.select": "मुद्रा चुनें",
+  "currency.custom": "कस्टम चिह्न",
+  "currency.custom_placeholder": "जैसे kr, CHF, $",
+  "currency.set": "सेट करें",
+  "currency.setting": "मुद्रा सेटिंग"
 }

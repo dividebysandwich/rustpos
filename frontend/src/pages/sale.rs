@@ -6,7 +6,6 @@ use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
-const CURRENCY_SYMBOL: &str = "€";
 
 fn redirect_to_login() {
     #[cfg(target_arch = "wasm32")]
@@ -77,6 +76,7 @@ fn setup_tick(_set_tick: WriteSignal<u32>) {}
 #[component]
 pub fn SalePage() -> impl IntoView {
     let i18n = expect_context::<RwSignal<I18n>>();
+    let currency = expect_context::<RwSignal<String>>();
     let (authorized, set_authorized) = signal(false);
     let (user_role, set_user_role) = signal(String::new());
 
@@ -439,7 +439,7 @@ pub fn SalePage() -> impl IntoView {
                                             <img class="item-card-img" src=path alt="" />
                                         })}
                                         <div class="item-card-overlay">
-                                            <div class="item-price-badge">{format!("{}{:.2}", CURRENCY_SYMBOL, item.price)}</div>
+                                            <div class="item-price-badge">{format!("{}{:.2}", &currency.get(), item.price)}</div>
                                             <div class="item-name-badge">{item.name.clone()}</div>
                                         </div>
                                         <Show when=move || is_out fallback=|| ()>
@@ -486,7 +486,7 @@ pub fn SalePage() -> impl IntoView {
                                         view! {
                                             <div class="last-change-display">
                                                 <strong>{i18n.get().t("sale.last_change")}</strong>
-                                                {format!("{} {:.2}", CURRENCY_SYMBOL, t.change_amount.unwrap())}
+                                                {format!("{} {:.2}", &currency.get(), t.change_amount.unwrap())}
                                             </div>
                                         }
                                     })
@@ -502,7 +502,7 @@ pub fn SalePage() -> impl IntoView {
                                                     <div class="open-transaction-item">
                                                         <div>
                                                             <strong>{trans.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}</strong>
-                                                            <span>" - "{format!("{} {:.2}", CURRENCY_SYMBOL, trans.total)}</span>
+                                                            <span>" - "{format!("{} {:.2}", &currency.get(), trans.total)}</span>
                                                         </div>
                                                         <button class="btn-small" on:click=move |_| resume_transaction(trans_id)>{i18n.get().t("sale.resume")}</button>
                                                     </div>
@@ -541,7 +541,7 @@ pub fn SalePage() -> impl IntoView {
                                                 <tr>
                                                     <td>{item.item_name.clone()}</td>
                                                     <td>{format!("{}x", item.quantity)}</td>
-                                                    <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.total_price)}</td>
+                                                    <td>{format!("{} {:.2}", &currency.get(), item.total_price)}</td>
                                                     <td class="data-table-actions">
                                                         <button class="btn-remove" on:click=move |_| remove_item(item_id)>"-"</button>
                                                     </td>
@@ -554,7 +554,7 @@ pub fn SalePage() -> impl IntoView {
 
                             <div class="transaction-total">
                                 <strong>{i18n.get().t("sale.total")}</strong>
-                                <strong>{move || format!("{} {:.2}", CURRENCY_SYMBOL, transaction_total())}</strong>
+                                <strong>{move || format!("{} {:.2}", &currency.get(), transaction_total())}</strong>
                             </div>
 
                             <div class="payment-change-wrapper">
@@ -597,7 +597,7 @@ pub fn SalePage() -> impl IntoView {
                                                 view! {
                                                     <button class="quick-cash-btn"
                                                         on:click=move |_| set_payment_amount.set(format!("{}", v))
-                                                    >{format!("{}{}", CURRENCY_SYMBOL, v)}</button>
+                                                    >{format!("{}{}", &currency.get(), v)}</button>
                                                 }
                                             }
                                         </For>
@@ -636,7 +636,7 @@ pub fn SalePage() -> impl IntoView {
 
                             <Show when=move || change_amount.get().is_some() fallback=|| ()>
                                 <div class="change-display">
-                                    <h3>{move || i18n.get().t("sale.change")}{move || format!("{} {:.2}", CURRENCY_SYMBOL, change_amount.get().unwrap())}</h3>
+                                    <h3>{move || i18n.get().t("sale.change")}{move || format!("{} {:.2}", &currency.get(), change_amount.get().unwrap())}</h3>
                                 </div>
                             </Show>
                         </div>

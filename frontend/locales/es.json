@@ -7,7 +7,6 @@
   "nav.users": "Usuarios",
   "nav.light_mode": "Cambiar a modo claro",
   "nav.dark_mode": "Cambiar a modo oscuro",
-
   "general.loading": "Cargando...",
   "general.page_not_found": "Página no encontrada",
   "general.walkin": "Sin cita",
@@ -21,11 +20,9 @@
   "general.unknown": "Desconocido",
   "general.name": "Nombre",
   "general.description": "Descripción",
-
   "role.admin": "Administrador",
   "role.cashier": "Cajero",
   "role.cook": "Cocinero",
-
   "setup.select_language": "Seleccionar idioma",
   "setup.initial_setup": "Configuración inicial",
   "setup.admin_created": "Se ha creado una cuenta de administrador. Por favor, guarde estas credenciales:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Por favor, cambie su PIN después de iniciar sesión.",
   "setup.continue_login": "Continuar al inicio de sesión",
-
   "login.select_user": "Seleccionar usuario",
   "login.enter_pin": "Ingrese su PIN",
   "login.welcome": "Bienvenido, {name}",
   "login.clear": "Borrar",
   "login.ok": "Aceptar",
   "login.back": "Volver",
-
   "sale.sale": "Venta",
   "sale.kitchen": "Cocina",
   "sale.logout": "Cerrar sesión",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Pedidos de cocina",
   "sale.no_kitchen_orders": "No hay pedidos de cocina pendientes",
   "sale.complete": "Completar",
-
   "kitchen.title": "Pantalla de cocina",
   "kitchen.hide_completed": "Ocultar completados",
   "kitchen.show_completed": "Mostrar completados",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Pedido completado",
   "kitchen.completed_orders": "Pedidos completados",
   "kitchen.no_completed": "Aún no hay pedidos completados",
-
   "admin.user_management": "Gestión de usuarios",
   "admin.add_user": "Agregar usuario",
   "admin.create_user": "Crear nuevo usuario",
@@ -103,7 +96,6 @@
   "admin.language": "Idioma",
   "admin.language_setting": "Configuración de idioma",
   "admin.language_changed": "Idioma cambiado. Recargando...",
-
   "items.title": "Productos",
   "items.add_item": "Agregar nuevo producto",
   "items.create_item": "Crear nuevo producto",
@@ -124,14 +116,12 @@
   "items.out": "Agotado",
   "items.confirm_delete": "¿Está seguro de que desea eliminar \"{name}\"?",
   "items.upload": "Subir",
-
   "categories.title": "Categorías",
   "categories.add": "Agregar nueva categoría",
   "categories.create": "Crear nueva categoría",
   "categories.edit": "Editar categoría",
   "categories.confirm_delete": "¿Está seguro de que desea eliminar la categoría \"{name}\"?",
   "categories.delete_warning": "Advertencia: Esto NO eliminará los productos de esta categoría, pero pueden ser más difíciles de encontrar.",
-
   "transactions.title": "Transacciones",
   "transactions.show_all": "Mostrar todas",
   "transactions.show_open": "Mostrar solo abiertas",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Total: ",
   "transactions.paid": "Pagado: ",
   "transactions.change": "Cambio: ",
-
   "reports.title": "Informes de ventas",
   "reports.today": "Hoy",
   "reports.monthly": "Últimos 30 días",
@@ -174,9 +163,14 @@
   "reports.revenue": "Ingresos",
   "reports.avg_price": "Precio promedio",
   "reports.total": "Total",
-
   "keyboard.shift": "Mayús",
   "keyboard.bksp": "Retroceso",
   "keyboard.space": "Espacio",
-  "keyboard.enter": "Intro"
+  "keyboard.enter": "Intro",
+  "currency.title": "Moneda",
+  "currency.select": "Seleccionar moneda",
+  "currency.custom": "Símbolo personalizado",
+  "currency.custom_placeholder": "ej. kr, CHF, $",
+  "currency.set": "Establecer",
+  "currency.setting": "Configuración de moneda"
 }

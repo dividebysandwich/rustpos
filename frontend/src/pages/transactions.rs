@@ -5,11 +5,10 @@ use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
-const CURRENCY_SYMBOL: &str = "€";
-
 #[component]
 pub fn TransactionsPage() -> impl IntoView {
     let i18n = expect_context::<RwSignal<I18n>>();
+    let currency = expect_context::<RwSignal<String>>();
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -100,7 +99,7 @@ pub fn TransactionsPage() -> impl IntoView {
                                     style="cursor: pointer;"
                                 >
                                     <td>{transaction.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}</td>
-                                    <td>{format!("{} {:.2}", CURRENCY_SYMBOL, transaction.total)}</td>
+                                    <td>{format!("{} {:.2}", &currency.get(), transaction.total)}</td>
                                     <td>{transaction.status.clone()}</td>
                                     <td>{transaction.created_at.format("%Y-%m-%d %H:%M").to_string()}</td>
                                 </tr>
@@ -116,11 +115,11 @@ pub fn TransactionsPage() -> impl IntoView {
                                                     let items = d.items.clone();
                                                     let has_customer = t.customer_name.is_some();
                                                     let customer = t.customer_name.clone().unwrap_or_default();
-                                                    let total = format!("{} {:.2}", CURRENCY_SYMBOL, t.total);
+                                                    let total = format!("{} {:.2}", &currency.get(), t.total);
                                                     let has_paid = t.paid_amount.is_some();
-                                                    let paid = format!("{} {:.2}", CURRENCY_SYMBOL, t.paid_amount.unwrap_or(0.0));
+                                                    let paid = format!("{} {:.2}", &currency.get(), t.paid_amount.unwrap_or(0.0));
                                                     let has_change = t.change_amount.is_some();
-                                                    let change = format!("{} {:.2}", CURRENCY_SYMBOL, t.change_amount.unwrap_or(0.0));
+                                                    let change = format!("{} {:.2}", &currency.get(), t.change_amount.unwrap_or(0.0));
                                                     view! {
                                                         <div class="transaction-detail-panel">
                                                             <Show when=move || has_customer fallback=|| ()>
@@ -148,8 +147,8 @@ pub fn TransactionsPage() -> impl IntoView {
                                                                         <tr>
                                                                             <td>{item.item_name.clone()}</td>
                                                                             <td>{item.quantity.to_string()}</td>
-                                                                            <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.unit_price)}</td>
-                                                                            <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.total_price)}</td>
+                                                                            <td>{format!("{} {:.2}", &currency.get(), item.unit_price)}</td>
+                                                                            <td>{format!("{} {:.2}", &currency.get(), item.total_price)}</td>
                                                                         </tr>
                                                                     </For>
                                                                 </tbody>

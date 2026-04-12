@@ -7,7 +7,6 @@
   "nav.users": "Utilizatori",
   "nav.light_mode": "Comuta la modul luminos",
   "nav.dark_mode": "Comuta la modul intunecat",
-
   "general.loading": "Se incarca...",
   "general.page_not_found": "Pagina nu a fost gasita",
   "general.walkin": "Client ocazional",
@@ -21,11 +20,9 @@
   "general.unknown": "Necunoscut",
   "general.name": "Nume",
   "general.description": "Descriere",
-
   "role.admin": "Administrator",
   "role.cashier": "Casier",
   "role.cook": "Bucatar",
-
   "setup.select_language": "Selectati limba",
   "setup.initial_setup": "Configurare initiala",
   "setup.admin_created": "Un cont de administrator a fost creat. Va rugam sa salvati aceste credentiale:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Va rugam sa schimbati PIN-ul dupa autentificare.",
   "setup.continue_login": "Continuati la autentificare",
-
   "login.select_user": "Selectati utilizatorul",
   "login.enter_pin": "Introduceti PIN-ul",
   "login.welcome": "Bine ati venit, {name}",
   "login.clear": "Sterge",
   "login.ok": "OK",
   "login.back": "Inapoi",
-
   "sale.sale": "Vanzare",
   "sale.kitchen": "Bucatarie",
   "sale.logout": "Deconectare",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Comenzi bucatarie",
   "sale.no_kitchen_orders": "Nu exista comenzi in asteptare pentru bucatarie",
   "sale.complete": "Finalizeaza",
-
   "kitchen.title": "Afisaj bucatarie",
   "kitchen.hide_completed": "Ascunde finalizate",
   "kitchen.show_completed": "Afiseaza finalizate",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Comanda finalizata",
   "kitchen.completed_orders": "Comenzi finalizate",
   "kitchen.no_completed": "Nicio comanda finalizata inca",
-
   "admin.user_management": "Gestionare utilizatori",
   "admin.add_user": "Adauga utilizator",
   "admin.create_user": "Creeaza utilizator nou",
@@ -103,7 +96,6 @@
   "admin.language": "Limba",
   "admin.language_setting": "Setare limba",
   "admin.language_changed": "Limba a fost schimbata. Se reincarca...",
-
   "items.title": "Produse",
   "items.add_item": "Adauga produs nou",
   "items.create_item": "Creeaza produs nou",
@@ -124,14 +116,12 @@
   "items.out": "Epuizat",
   "items.confirm_delete": "Sunteti sigur ca doriti sa stergeti \"{name}\"?",
   "items.upload": "Incarca",
-
   "categories.title": "Categorii",
   "categories.add": "Adauga categorie noua",
   "categories.create": "Creeaza categorie noua",
   "categories.edit": "Editeaza categorie",
   "categories.confirm_delete": "Sunteti sigur ca doriti sa stergeti categoria \"{name}\"?",
   "categories.delete_warning": "Atentie: Aceasta actiune NU va sterge produsele din aceasta categorie, dar acestea pot deveni mai greu de gasit.",
-
   "transactions.title": "Tranzactii",
   "transactions.show_all": "Afiseaza toate",
   "transactions.show_open": "Afiseaza doar cele deschise",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Total: ",
   "transactions.paid": "Platit: ",
   "transactions.change": "Rest: ",
-
   "reports.title": "Rapoarte de vanzari",
   "reports.today": "Astazi",
   "reports.monthly": "Ultimele 30 de zile",
@@ -174,9 +163,14 @@
   "reports.revenue": "Venit",
   "reports.avg_price": "Pret mediu",
   "reports.total": "Total",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Spatiu",
-  "keyboard.enter": "Enter"
+  "keyboard.enter": "Enter",
+  "currency.title": "Monedă",
+  "currency.select": "Selectați moneda",
+  "currency.custom": "Simbol personalizat",
+  "currency.custom_placeholder": "ex. kr, CHF, $",
+  "currency.set": "Setare",
+  "currency.setting": "Setare monedă"
 }

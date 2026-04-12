@@ -5,8 +5,6 @@ use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
-const CURRENCY_SYMBOL: &str = "€";
-
 fn redirect_to_login_reports() {
     #[cfg(target_arch = "wasm32")]
     {
@@ -31,6 +29,7 @@ fn trigger_csv_download(csv: &str, filename: &str) {
 #[component]
 pub fn ReportsPage() -> impl IntoView {
     let i18n = expect_context::<RwSignal<I18n>>();
+    let currency = expect_context::<RwSignal<String>>();
 
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
@@ -168,10 +167,10 @@ pub fn ReportsPage() -> impl IntoView {
                                 </div>
 
                                 <div class="summary-cards">
-                                    <div class="summary-card"><h4>{i18n.get().t("reports.total_revenue")}</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.total_revenue)}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.total_revenue")}</h4><div class="summary-value">{format!("{} {:.2}", &currency.get(), report_data.summary.total_revenue)}</div></div>
                                     <div class="summary-card"><h4>{i18n.get().t("reports.items_sold")}</h4><div class="summary-value">{report_data.summary.total_items_sold.to_string()}</div></div>
                                     <div class="summary-card"><h4>{i18n.get().t("reports.transactions")}</h4><div class="summary-value">{report_data.summary.total_transactions.to_string()}</div></div>
-                                    <div class="summary-card"><h4>{i18n.get().t("reports.avg_transaction")}</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.average_transaction_value)}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.avg_transaction")}</h4><div class="summary-value">{format!("{} {:.2}", &currency.get(), report_data.summary.average_transaction_value)}</div></div>
                                 </div>
 
                                 <div class="report-highlights">
@@ -196,8 +195,8 @@ pub fn ReportsPage() -> impl IntoView {
                                                         <td>{item.item_name.clone()}</td>
                                                         <td>{item.category_name.clone()}</td>
                                                         <td>{item.quantity_sold.to_string()}</td>
-                                                        <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.total_revenue)}</td>
-                                                        <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.average_price)}</td>
+                                                        <td>{format!("{} {:.2}", &currency.get(), item.total_revenue)}</td>
+                                                        <td>{format!("{} {:.2}", &currency.get(), item.average_price)}</td>
                                                         <td>{item.transaction_count.to_string()}</td>
                                                     </tr>
                                                 </For>
@@ -206,7 +205,7 @@ pub fn ReportsPage() -> impl IntoView {
                                                 <tr class="table-footer">
                                                     <td colspan="2"><strong>{i18n.get().t("reports.total")}</strong></td>
                                                     <td><strong>{total_items.to_string()}</strong></td>
-                                                    <td><strong>{format!("{} {:.2}", CURRENCY_SYMBOL, total_revenue)}</strong></td>
+                                                    <td><strong>{format!("{} {:.2}", &currency.get(), total_revenue)}</strong></td>
                                                     <td>"-"</td>
                                                     <td><strong>{total_transactions.to_string()}</strong></td>
                                                 </tr>

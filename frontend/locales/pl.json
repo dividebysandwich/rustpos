@@ -7,7 +7,6 @@
   "nav.users": "Uzytkownicy",
   "nav.light_mode": "Przelacz na jasny motyw",
   "nav.dark_mode": "Przelacz na ciemny motyw",
-
   "general.loading": "Ladowanie...",
   "general.page_not_found": "Nie znaleziono strony",
   "general.walkin": "Klient bez rezerwacji",
@@ -21,11 +20,9 @@
   "general.unknown": "Nieznany",
   "general.name": "Nazwa",
   "general.description": "Opis",
-
   "role.admin": "Administrator",
   "role.cashier": "Kasjer",
   "role.cook": "Kucharz",
-
   "setup.select_language": "Wybierz jezyk",
   "setup.initial_setup": "Konfiguracja poczatkowa",
   "setup.admin_created": "Konto administratora zostalo utworzone. Prosze zapisac te dane logowania:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Prosze zmienic PIN po zalogowaniu.",
   "setup.continue_login": "Przejdz do logowania",
-
   "login.select_user": "Wybierz uzytkownika",
   "login.enter_pin": "Wprowadz swoj PIN",
   "login.welcome": "Witaj, {name}",
   "login.clear": "Wyczysc",
   "login.ok": "OK",
   "login.back": "Wstecz",
-
   "sale.sale": "Sprzedaz",
   "sale.kitchen": "Kuchnia",
   "sale.logout": "Wyloguj",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Zamowienia kuchenne",
   "sale.no_kitchen_orders": "Brak oczekujacych zamowien kuchennych",
   "sale.complete": "Zakoncz",
-
   "kitchen.title": "Wyswietlacz kuchenny",
   "kitchen.hide_completed": "Ukryj zakonczone",
   "kitchen.show_completed": "Pokaz zakonczone",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Zamowienie zakonczone",
   "kitchen.completed_orders": "Zakonczone zamowienia",
   "kitchen.no_completed": "Brak zakonczonych zamowien",
-
   "admin.user_management": "Zarzadzanie uzytkownikami",
   "admin.add_user": "Dodaj uzytkownika",
   "admin.create_user": "Utworz nowego uzytkownika",
@@ -103,7 +96,6 @@
   "admin.language": "Jezyk",
   "admin.language_setting": "Ustawienia jezyka",
   "admin.language_changed": "Jezyk zmieniony. Ponowne ladowanie...",
-
   "items.title": "Produkty",
   "items.add_item": "Dodaj nowy produkt",
   "items.create_item": "Utworz nowy produkt",
@@ -124,14 +116,12 @@
   "items.out": "Brak",
   "items.confirm_delete": "Czy na pewno chcesz usunac \"{name}\"?",
   "items.upload": "Przeslij",
-
   "categories.title": "Kategorie",
   "categories.add": "Dodaj nowa kategorie",
   "categories.create": "Utworz nowa kategorie",
   "categories.edit": "Edytuj kategorie",
   "categories.confirm_delete": "Czy na pewno chcesz usunac kategorie \"{name}\"?",
   "categories.delete_warning": "Uwaga: To NIE usunie produktow z tej kategorii, ale moga byc trudniejsze do znalezienia.",
-
   "transactions.title": "Transakcje",
   "transactions.show_all": "Pokaz wszystkie",
   "transactions.show_open": "Pokaz tylko otwarte",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Suma: ",
   "transactions.paid": "Zaplacono: ",
   "transactions.change": "Reszta: ",
-
   "reports.title": "Raporty sprzedazy",
   "reports.today": "Dzisiaj",
   "reports.monthly": "Ostatnie 30 dni",
@@ -174,9 +163,14 @@
   "reports.revenue": "Przychod",
   "reports.avg_price": "Srednia cena",
   "reports.total": "Suma",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Cofnij",
   "keyboard.space": "Spacja",
-  "keyboard.enter": "Enter"
+  "keyboard.enter": "Enter",
+  "currency.title": "Waluta",
+  "currency.select": "Wybierz walutę",
+  "currency.custom": "Własny symbol",
+  "currency.custom_placeholder": "np. kr, CHF, $",
+  "currency.set": "Ustaw",
+  "currency.setting": "Ustawienia waluty"
 }

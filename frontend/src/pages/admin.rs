@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 
-use crate::i18n::{available_languages, I18n};
+use crate::i18n::{available_currencies, available_languages, I18n};
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -493,7 +493,69 @@ pub fn AdminPage() -> impl IntoView {
                 }).collect_view()}
             </div>
         </div>
+
+        // Currency setting section
+        <CurrencySettings i18n=i18n />
+
         </Show>
+    }
+}
+
+#[component]
+fn CurrencySettings(i18n: RwSignal<I18n>) -> impl IntoView {
+    let currency_ctx = expect_context::<RwSignal<String>>();
+    let (custom_input, set_custom_input) = signal(String::new());
+
+    let set_currency = move |sym: String| {
+        let sym_clone = sym.clone();
+        currency_ctx.set(sym);
+        leptos::task::spawn_local(async move {
+            let _ = set_currency_admin(sym_clone).await;
+        });
+    };
+
+    let submit_custom = move |_| {
+        let val = custom_input.get().trim().to_string();
+        if !val.is_empty() {
+            set_currency(val);
+            set_custom_input.set(String::new());
+        }
+    };
+
+    view! {
+        <div class="admin-page" style="margin-top: 2rem;">
+            <h2>{move || i18n.get().t("currency.setting")}</h2>
+            <div class="currency-grid">
+                {available_currencies().into_iter().map(|(sym, label)| {
+                    let sym_str = sym.to_string();
+                    let sym_for_class = sym.to_string();
+                    view! {
+                        <button
+                            class=move || if currency_ctx.get() == sym_for_class { "currency-btn currency-btn-active" } else { "currency-btn" }
+                            on:click=move |_| set_currency(sym_str.clone())
+                        >
+                            {label}
+                        </button>
+                    }
+                }).collect_view()}
+            </div>
+
+            <div class="currency-custom">
+                <label>{move || i18n.get().t("currency.custom")}</label>
+                <div class="currency-custom-row">
+                    <input
+                        type="text"
+                        maxlength="5"
+                        placeholder=move || i18n.get().t("currency.custom_placeholder")
+                        on:input=move |ev| set_custom_input.set(event_target_value(&ev))
+                        prop:value=move || custom_input.get()
+                    />
+                    <button class="btn-primary" on:click=submit_custom>
+                        {move || i18n.get().t("currency.set")}
+                    </button>
+                </div>
+            </div>
+        </div>
     }
 }
 

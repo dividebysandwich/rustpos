@@ -1439,3 +1439,41 @@ pub async fn set_language_admin(lang: String) -> Result<(), ServerFnError> {
     .map_err(db_err)?;
     Ok(())
 }
+
+#[server]
+pub async fn get_config_currency() -> Result<Option<String>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let currency: Option<String> =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'currency'")
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?;
+    Ok(currency)
+}
+
+#[server]
+pub async fn set_config_currency(currency: String) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('currency', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(&currency)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+#[server]
+pub async fn set_currency_admin(currency: String) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('currency', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(&currency)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}

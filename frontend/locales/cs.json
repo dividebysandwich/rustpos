@@ -7,7 +7,6 @@
   "nav.users": "Uživatelé",
   "nav.light_mode": "Přepnout na světlý režim",
   "nav.dark_mode": "Přepnout na tmavý režim",
-
   "general.loading": "Načítání...",
   "general.page_not_found": "Stránka nenalezena",
   "general.walkin": "Náhodný zákazník",
@@ -21,11 +20,9 @@
   "general.unknown": "Neznámý",
   "general.name": "Název",
   "general.description": "Popis",
-
   "role.admin": "Administrátor",
   "role.cashier": "Pokladní",
   "role.cook": "Kuchař",
-
   "setup.select_language": "Vyberte jazyk",
   "setup.initial_setup": "Počáteční nastavení",
   "setup.admin_created": "Byl vytvořen administrátorský účet. Uložte si prosím tyto přihlašovací údaje:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Po přihlášení si prosím změňte PIN.",
   "setup.continue_login": "Pokračovat k přihlášení",
-
   "login.select_user": "Vyberte uživatele",
   "login.enter_pin": "Zadejte svůj PIN",
   "login.welcome": "Vítejte, {name}",
   "login.clear": "Vymazat",
   "login.ok": "OK",
   "login.back": "Zpět",
-
   "sale.sale": "Prodej",
   "sale.kitchen": "Kuchyně",
   "sale.logout": "Odhlásit",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Objednávky do kuchyně",
   "sale.no_kitchen_orders": "Žádné čekající objednávky do kuchyně",
   "sale.complete": "Dokončit",
-
   "kitchen.title": "Kuchyňský displej",
   "kitchen.hide_completed": "Skrýt dokončené",
   "kitchen.show_completed": "Zobrazit dokončené",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Objednávka dokončena",
   "kitchen.completed_orders": "Dokončené objednávky",
   "kitchen.no_completed": "Zatím žádné dokončené objednávky",
-
   "admin.user_management": "Správa uživatelů",
   "admin.add_user": "Přidat uživatele",
   "admin.create_user": "Vytvořit nového uživatele",
@@ -103,7 +96,6 @@
   "admin.language": "Jazyk",
   "admin.language_setting": "Nastavení jazyka",
   "admin.language_changed": "Jazyk byl změněn. Načítání...",
-
   "items.title": "Produkty",
   "items.add_item": "Přidat nový produkt",
   "items.create_item": "Vytvořit nový produkt",
@@ -124,14 +116,12 @@
   "items.out": "Vyprodáno",
   "items.confirm_delete": "Opravdu chcete smazat \"{name}\"?",
   "items.upload": "Nahrát",
-
   "categories.title": "Kategorie",
   "categories.add": "Přidat novou kategorii",
   "categories.create": "Vytvořit novou kategorii",
   "categories.edit": "Upravit kategorii",
   "categories.confirm_delete": "Opravdu chcete smazat kategorii \"{name}\"?",
   "categories.delete_warning": "Upozornění: Tímto NEBUDOU smazány produkty v této kategorii, ale mohou být hůře dohledatelné.",
-
   "transactions.title": "Transakce",
   "transactions.show_all": "Zobrazit vše",
   "transactions.show_open": "Pouze otevřené",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Celkem: ",
   "transactions.paid": "Zaplaceno: ",
   "transactions.change": "Nazpět: ",
-
   "reports.title": "Přehledy prodejů",
   "reports.today": "Dnes",
   "reports.monthly": "Posledních 30 dní",
@@ -174,9 +163,14 @@
   "reports.revenue": "Příjem",
   "reports.avg_price": "Průměrná cena",
   "reports.total": "Celkem",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Mezerník",
-  "keyboard.enter": "Enter"
+  "keyboard.enter": "Enter",
+  "currency.title": "Měna",
+  "currency.select": "Vybrat měnu",
+  "currency.custom": "Vlastní symbol",
+  "currency.custom_placeholder": "např. kr, CHF, $",
+  "currency.set": "Nastavit",
+  "currency.setting": "Nastavení měny"
 }

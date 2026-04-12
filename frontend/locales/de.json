@@ -7,7 +7,6 @@
   "nav.users": "Benutzer",
   "nav.light_mode": "Zum hellen Modus wechseln",
   "nav.dark_mode": "Zum dunklen Modus wechseln",
-
   "general.loading": "Laden...",
   "general.page_not_found": "Seite nicht gefunden",
   "general.walkin": "Laufkundschaft",
@@ -21,11 +20,9 @@
   "general.unknown": "Unbekannt",
   "general.name": "Name",
   "general.description": "Beschreibung",
-
   "role.admin": "Administrator",
   "role.cashier": "Kassierer",
   "role.cook": "Koch",
-
   "setup.select_language": "Sprache auswählen",
   "setup.initial_setup": "Ersteinrichtung",
   "setup.admin_created": "Ein Administratorkonto wurde erstellt. Bitte speichern Sie diese Zugangsdaten:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Bitte ändern Sie Ihre PIN nach der Anmeldung.",
   "setup.continue_login": "Weiter zur Anmeldung",
-
   "login.select_user": "Benutzer auswählen",
   "login.enter_pin": "Geben Sie Ihre PIN ein",
   "login.welcome": "Willkommen, {name}",
   "login.clear": "Löschen",
   "login.ok": "OK",
   "login.back": "Zurück",
-
   "sale.sale": "Verkauf",
   "sale.kitchen": "Küche",
   "sale.logout": "Abmelden",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Küchenbestellungen",
   "sale.no_kitchen_orders": "Keine ausstehenden Küchenbestellungen",
   "sale.complete": "Abschließen",
-
   "kitchen.title": "Küchenanzeige",
   "kitchen.hide_completed": "Erledigte ausblenden",
   "kitchen.show_completed": "Erledigte anzeigen",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Bestellung erledigt",
   "kitchen.completed_orders": "Erledigte Bestellungen",
   "kitchen.no_completed": "Noch keine erledigten Bestellungen",
-
   "admin.user_management": "Benutzerverwaltung",
   "admin.add_user": "Benutzer hinzufügen",
   "admin.create_user": "Neuen Benutzer erstellen",
@@ -103,7 +96,6 @@
   "admin.language": "Sprache",
   "admin.language_setting": "Spracheinstellung",
   "admin.language_changed": "Sprache geändert. Wird neu geladen...",
-
   "items.title": "Artikel",
   "items.add_item": "Neuen Artikel hinzufügen",
   "items.create_item": "Neuen Artikel erstellen",
@@ -124,14 +116,12 @@
   "items.out": "Aus",
   "items.confirm_delete": "Möchten Sie \"{name}\" wirklich löschen?",
   "items.upload": "Hochladen",
-
   "categories.title": "Kategorien",
   "categories.add": "Neue Kategorie hinzufügen",
   "categories.create": "Neue Kategorie erstellen",
   "categories.edit": "Kategorie bearbeiten",
   "categories.confirm_delete": "Möchten Sie die Kategorie \"{name}\" wirklich löschen?",
   "categories.delete_warning": "Warnung: Artikel in dieser Kategorie werden NICHT gelöscht, sind aber möglicherweise schwerer zu finden.",
-
   "transactions.title": "Transaktionen",
   "transactions.show_all": "Alle anzeigen",
   "transactions.show_open": "Nur offene anzeigen",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Gesamt: ",
   "transactions.paid": "Bezahlt: ",
   "transactions.change": "Rückgeld: ",
-
   "reports.title": "Verkaufsberichte",
   "reports.today": "Heute",
   "reports.monthly": "Letzte 30 Tage",
@@ -174,9 +163,14 @@
   "reports.revenue": "Umsatz",
   "reports.avg_price": "Durchschn. Preis",
   "reports.total": "Gesamt",
-
   "keyboard.shift": "Umschalt",
   "keyboard.bksp": "Lösch.",
   "keyboard.space": "Leertaste",
-  "keyboard.enter": "Eingabe"
+  "keyboard.enter": "Eingabe",
+  "currency.title": "Währung",
+  "currency.select": "Währung auswählen",
+  "currency.custom": "Eigenes Symbol",
+  "currency.custom_placeholder": "z.B. kr, CHF, $",
+  "currency.set": "Setzen",
+  "currency.setting": "Währungseinstellung"
 }

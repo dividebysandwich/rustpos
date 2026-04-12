@@ -7,7 +7,6 @@
   "nav.users": "Felhasznalok",
   "nav.light_mode": "Valtast vilagos modra",
   "nav.dark_mode": "Valtas sotet modra",
-
   "general.loading": "Betoltes...",
   "general.page_not_found": "Az oldal nem talalhato",
   "general.walkin": "Alkalmi vevo",
@@ -21,11 +20,9 @@
   "general.unknown": "Ismeretlen",
   "general.name": "Nev",
   "general.description": "Leiras",
-
   "role.admin": "Adminisztrator",
   "role.cashier": "Penztar",
   "role.cook": "Szakacs",
-
   "setup.select_language": "Nyelv valasztasa",
   "setup.initial_setup": "Kezdeti beallitas",
   "setup.admin_created": "Az adminisztratoi fiok letrejott. Kerem, mentse el az alabbi hitelesito adatokat:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Kerem, valtoztassa meg a PIN kodjat bejelentkezes utan.",
   "setup.continue_login": "Tovabb a bejelentkezeshez",
-
   "login.select_user": "Valasszon felhasznalot",
   "login.enter_pin": "Adja meg a PIN kodjat",
   "login.welcome": "Udvozoljuk, {name}",
   "login.clear": "Torles",
   "login.ok": "OK",
   "login.back": "Vissza",
-
   "sale.sale": "Eladas",
   "sale.kitchen": "Konyha",
   "sale.logout": "Kijelentkezes",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Konyhai rendelesek",
   "sale.no_kitchen_orders": "Nincsenek fuggben levo konyhai rendelesek",
   "sale.complete": "Kesz",
-
   "kitchen.title": "Konyhai kijelzo",
   "kitchen.hide_completed": "Kesz rendelesek elrejtese",
   "kitchen.show_completed": "Kesz rendelesek mutatasa",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Rendeles kesz",
   "kitchen.completed_orders": "Befejezett rendelesek",
   "kitchen.no_completed": "Meg nincsenek befejezett rendelesek",
-
   "admin.user_management": "Felhasznalokezeles",
   "admin.add_user": "Felhasznalo hozzaadasa",
   "admin.create_user": "Uj felhasznalo letrehozasa",
@@ -103,7 +96,6 @@
   "admin.language": "Nyelv",
   "admin.language_setting": "Nyelvi beallitas",
   "admin.language_changed": "Nyelv megvaltoztatva. Ujratoltodes...",
-
   "items.title": "Termekek",
   "items.add_item": "Uj termek hozzaadasa",
   "items.create_item": "Uj termek letrehozasa",
@@ -124,14 +116,12 @@
   "items.out": "Elfogyott",
   "items.confirm_delete": "Biztosan torolni szeretne a(z) \"{name}\" termeket?",
   "items.upload": "Feltoltes",
-
   "categories.title": "Kategoriak",
   "categories.add": "Uj kategoria hozzaadasa",
   "categories.create": "Uj kategoria letrehozasa",
   "categories.edit": "Kategoria szerkesztese",
   "categories.confirm_delete": "Biztosan torolni szeretne a(z) \"{name}\" kategoriat?",
   "categories.delete_warning": "Figyelmezetes: Ez NEM torli a kategoriaban levo termekeket, de nehezebben lehetnek megtalalhatoak.",
-
   "transactions.title": "Tranzakciok",
   "transactions.show_all": "Osszes mutatasa",
   "transactions.show_open": "Csak nyitottak mutatasa",
@@ -147,7 +137,6 @@
   "transactions.total_label": "Osszesen: ",
   "transactions.paid": "Fizetve: ",
   "transactions.change": "Visszajaro: ",
-
   "reports.title": "Eladasi jelentsek",
   "reports.today": "Ma",
   "reports.monthly": "Utolso 30 nap",
@@ -174,9 +163,14 @@
   "reports.revenue": "Bevetel",
   "reports.avg_price": "Atlag ar",
   "reports.total": "Osszesen",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Torles",
   "keyboard.space": "Szokoz",
-  "keyboard.enter": "Enter"
+  "keyboard.enter": "Enter",
+  "currency.title": "Pénznem",
+  "currency.select": "Pénznem kiválasztása",
+  "currency.custom": "Egyéni szimbólum",
+  "currency.custom_placeholder": "pl. kr, CHF, $",
+  "currency.set": "Beállítás",
+  "currency.setting": "Pénznem beállítás"
 }
