@@ -6,8 +6,8 @@ RustPOS is a simple Point of Sale system written in Rust. It is very easy to get
 This is a simple implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
 
 > [!NOTE]
-> This project is a functional proof of concept and not intended to be used in a production environment.
-> For example, the backend does not use any form of authentication yet. This project also likely does not meet the requirements of your fiscal authorities.
+> This project is a functional proof of concept and not certified to be used in a production environment.
+> It also may not meet the requirements of your fiscal authorities. Please check your local laws and regulations before using this software to perform sales.
 
 <img width="1181" height="926" alt="image" src="https://github.com/user-attachments/assets/47ed4d5f-25cf-4da2-951e-4404e58e518b" />
 
@@ -21,11 +21,13 @@ This is a simple implementation using modern technologies. It was born out of my
 * Sales report generation: day, month, and custom date range reports with CSV export
 * POS printer support
 * Kitchen display
+* User accounts and user roles (admin, cashier, cook)
 * Simple inventory tracking
 * Bright and Dark mode support
 * All-Rust solution
 * Leptos and Webassembly powered web UI, no javascript
 * SQLite database
+* Localized into several languages
 
 
 <img width="1180" height="590" alt="image" src="https://github.com/user-attachments/assets/593e7a9a-544b-419e-be8a-df64b5fdfb8f" />

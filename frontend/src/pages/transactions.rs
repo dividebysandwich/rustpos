@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -8,6 +9,7 @@ const CURRENCY_SYMBOL: &str = "€";
 
 #[component]
 pub fn TransactionsPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -56,22 +58,22 @@ pub fn TransactionsPage() -> impl IntoView {
     };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div>
             <div class="page-header">
-                <h2>"Transactions"</h2>
+                <h2>{move || i18n.get().t("transactions.title")}</h2>
                 <button class="btn-secondary" on:click=move |_| set_show_all.set(!show_all.get())>
-                    {move || if show_all.get() { "Show Open Only" } else { "Show All" }}
+                    {move || if show_all.get() { i18n.get().t("transactions.show_open") } else { i18n.get().t("transactions.show_all") }}
                 </button>
             </div>
 
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>"Customer"</th>
-                        <th>"Total"</th>
-                        <th>"Status"</th>
-                        <th>"Created"</th>
+                        <th>{move || i18n.get().t("transactions.customer")}</th>
+                        <th>{move || i18n.get().t("transactions.total")}</th>
+                        <th>{move || i18n.get().t("transactions.status")}</th>
+                        <th>{move || i18n.get().t("transactions.created")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -97,7 +99,7 @@ pub fn TransactionsPage() -> impl IntoView {
                                     on:click=move |_| on_row_click(tid)
                                     style="cursor: pointer;"
                                 >
-                                    <td>{transaction.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}</td>
+                                    <td>{transaction.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}</td>
                                     <td>{format!("{} {:.2}", CURRENCY_SYMBOL, transaction.total)}</td>
                                     <td>{transaction.status.clone()}</td>
                                     <td>{transaction.created_at.format("%Y-%m-%d %H:%M").to_string()}</td>
@@ -107,7 +109,7 @@ pub fn TransactionsPage() -> impl IntoView {
                                         <td colspan="4">
                                             <Show
                                                 when=move || details.get().is_some()
-                                                fallback=|| view! { <div class="loading">"Loading..."</div> }
+                                                fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }
                                             >
                                                 {move || details.get().map(|d| {
                                                     let t = d.transaction.clone();
@@ -123,7 +125,7 @@ pub fn TransactionsPage() -> impl IntoView {
                                                         <div class="transaction-detail-panel">
                                                             <Show when=move || has_customer fallback=|| ()>
                                                                 <div class="detail-field">
-                                                                    <strong>"Customer: "</strong>
+                                                                    <strong>{i18n.get().t("transactions.details_customer")}</strong>
                                                                     {customer.clone()}
                                                                 </div>
                                                             </Show>
@@ -131,10 +133,10 @@ pub fn TransactionsPage() -> impl IntoView {
                                                             <table class="detail-items-table">
                                                                 <thead>
                                                                     <tr>
-                                                                        <th>"Item"</th>
-                                                                        <th>"Qty"</th>
-                                                                        <th>"Unit Price"</th>
-                                                                        <th>"Subtotal"</th>
+                                                                        <th>{i18n.get().t("transactions.item")}</th>
+                                                                        <th>{i18n.get().t("transactions.qty")}</th>
+                                                                        <th>{i18n.get().t("transactions.unit_price")}</th>
+                                                                        <th>{i18n.get().t("transactions.subtotal")}</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -155,18 +157,18 @@ pub fn TransactionsPage() -> impl IntoView {
 
                                                             <div class="detail-summary">
                                                                 <div class="detail-field">
-                                                                    <strong>"Total: "</strong>
+                                                                    <strong>{i18n.get().t("transactions.total_label")}</strong>
                                                                     {total.clone()}
                                                                 </div>
                                                                 <Show when=move || has_paid fallback=|| ()>
                                                                     <div class="detail-field">
-                                                                        <strong>"Paid: "</strong>
+                                                                        <strong>{i18n.get().t("transactions.paid")}</strong>
                                                                         {paid.clone()}
                                                                     </div>
                                                                 </Show>
                                                                 <Show when=move || has_change fallback=|| ()>
                                                                     <div class="detail-field">
-                                                                        <strong>"Change: "</strong>
+                                                                        <strong>{i18n.get().t("transactions.change")}</strong>
                                                                         {change.clone()}
                                                                     </div>
                                                                 </Show>

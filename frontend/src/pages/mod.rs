@@ -6,6 +6,7 @@ mod reports;
 mod kitchen;
 mod login;
 mod admin;
+mod setup;
 
 pub use sale::SalePage;
 pub use transactions::TransactionsPage;
@@ -15,3 +16,4 @@ pub use reports::ReportsPage;
 pub use kitchen::KitchenPage;
 pub use login::LoginPage;
 pub use admin::AdminPage;
+pub use setup::SetupPage;

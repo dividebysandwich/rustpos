@@ -1326,3 +1326,116 @@ pub async fn delete_user_account(id: Uuid) -> Result<(), ServerFnError> {
     }
     Ok(())
 }
+
+// ---- Config / i18n Server Functions ----
+
+#[server]
+pub async fn get_config_language() -> Result<Option<String>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let lang: Option<String> =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'language'")
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?;
+    Ok(lang)
+}
+
+#[server]
+pub async fn set_config_language(lang: String) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('language', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(&lang)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+#[server]
+pub async fn check_system_initialized() -> Result<(bool, bool), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let has_language: bool =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM config WHERE key = 'language'")
+            .fetch_one(&pool)
+            .await
+            .map_err(db_err)?
+            > 0;
+    let has_users: bool =
+        sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM users")
+            .fetch_one(&pool)
+            .await
+            .map_err(db_err)?
+            > 0;
+    Ok((has_language, has_users))
+}
+
+#[server]
+pub async fn initialize_admin() -> Result<InitialCredentials, ServerFnError> {
+    // Generate random PIN before any awaits (thread_rng is !Send)
+    let pin_str = {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let pin_num: u32 = rng.gen_range(1000..10000);
+        format!("{:04}", pin_num)
+    };
+
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&pool)
+        .await
+        .map_err(db_err)?;
+
+    if user_count > 0 {
+        return Err(not_found("Users already exist"));
+    }
+    let pin_hash_val = hash_pin(&pin_str);
+
+    let id = Uuid::new_v4();
+    let now = Utc::now();
+
+    sqlx::query(
+        "INSERT INTO users (id, username, pin_hash, role, created_at, updated_at) VALUES (?, ?, ?, 'admin', ?, ?)",
+    )
+    .bind(id)
+    .bind("admin")
+    .bind(&pin_hash_val)
+    .bind(now)
+    .bind(now)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+
+    // Print credentials if printer available
+    {
+        use crate::printer::{find_printer, print_credentials};
+        let pin_for_print = pin_str.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            if let Ok((_path, mut printer)) = find_printer() {
+                let _ = print_credentials(&mut printer, "admin", &pin_for_print);
+            }
+        })
+        .await;
+    }
+
+    Ok(InitialCredentials {
+        username: "admin".to_string(),
+        pin: pin_str,
+    })
+}
+
+#[server]
+pub async fn set_language_admin(lang: String) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('language', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(&lang)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}

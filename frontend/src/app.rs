@@ -6,6 +6,7 @@ use leptos_router::{
     StaticSegment,
 };
 
+use crate::i18n::I18n;
 use crate::models::UserInfo;
 use crate::pages::*;
 use crate::server_fns::*;
@@ -35,6 +36,8 @@ pub fn App() -> impl IntoView {
 
     let (dark_mode, set_dark_mode) = signal(false);
     let (current_user, set_current_user) = signal(Option::<UserInfo>::None);
+    let i18n = RwSignal::new(I18n::new("en"));
+    provide_context(i18n);
 
     Effect::new(move || {
         if dark_mode.get() {
@@ -48,9 +51,12 @@ pub fn App() -> impl IntoView {
         }
     });
 
-    // Fetch current user for navbar
+    // Fetch language + current user
     Effect::new(move || {
         leptos::task::spawn_local(async move {
+            if let Ok(Some(lang)) = get_config_language().await {
+                i18n.set(I18n::new(&lang));
+            }
             if let Ok(Some(u)) = get_current_user().await {
                 set_current_user.set(Some(u));
             }
@@ -65,7 +71,10 @@ pub fn App() -> impl IntoView {
             <AppNavbar dark_mode set_dark_mode current_user />
 
             <main class="container">
-                <Routes fallback=|| "Page not found">
+                <Routes fallback=move || {
+                    let i = i18n.get();
+                    view! { <p>{i.t("general.page_not_found")}</p> }
+                }>
                     <Route path=StaticSegment("") view=SalePage/>
                     <Route path=StaticSegment("transactions") view=TransactionsPage/>
                     <Route path=StaticSegment("items") view=ItemsPage/>
@@ -74,6 +83,7 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("kitchen") view=KitchenPage/>
                     <Route path=StaticSegment("login") view=LoginPage/>
                     <Route path=StaticSegment("admin") view=AdminPage/>
+                    <Route path=StaticSegment("setup") view=SetupPage/>
                 </Routes>
             </main>
         </Router>
@@ -86,28 +96,31 @@ fn AppNavbar(
     set_dark_mode: WriteSignal<bool>,
     current_user: ReadSignal<Option<UserInfo>>,
 ) -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let location = use_location();
     let is_kitchen = move || location.pathname.get().starts_with("/kitchen");
     let is_login = move || location.pathname.get().starts_with("/login");
+    let is_setup = move || location.pathname.get().starts_with("/setup");
 
     view! {
-        <Show when=move || !is_kitchen() && !is_login() fallback=|| ()>
+        <Show when=move || !is_kitchen() && !is_login() && !is_setup() fallback=|| ()>
             <nav class="navbar">
                 <div class="nav-container">
                     <img class="sitelogo" src="/logo_site.png"/>
                     <div class="nav-links">
                         {move || {
                             let user = current_user.get();
+                            let i = i18n.get();
                             let role = user.as_ref().map(|u| u.role.as_str()).unwrap_or("");
                             let is_admin = role == "admin";
                             view! {
-                                <A href="/">"Sale"</A>
+                                <A href="/">{i.t("nav.sale")}</A>
                                 <Show when=move || is_admin fallback=|| ()>
-                                    <A href="/transactions">"Transactions"</A>
-                                    <A href="/items">"Items"</A>
-                                    <A href="/categories">"Categories"</A>
-                                    <A href="/reports">"Reports"</A>
-                                    <A href="/admin">"Users"</A>
+                                    <A href="/transactions">{i18n.get().t("nav.transactions")}</A>
+                                    <A href="/items">{i18n.get().t("nav.items")}</A>
+                                    <A href="/categories">{i18n.get().t("nav.categories")}</A>
+                                    <A href="/reports">{i18n.get().t("nav.reports")}</A>
+                                    <A href="/admin">{i18n.get().t("nav.users")}</A>
                                 </Show>
                             }
                         }}
@@ -115,7 +128,7 @@ fn AppNavbar(
                     <button
                         class="dark-mode-toggle"
                         on:click=move |_| set_dark_mode.set(!dark_mode.get())
-                        title=move || if dark_mode.get() { "Switch to light mode" } else { "Switch to dark mode" }
+                        title=move || if dark_mode.get() { i18n.get().t("nav.light_mode") } else { i18n.get().t("nav.dark_mode") }
                     >
                         <Show when=move || dark_mode.get() fallback=|| view! {
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

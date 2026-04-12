@@ -1,39 +1,42 @@
 use leptos::prelude::*;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
 #[component]
 pub fn LoginPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (users, set_users) = signal(Vec::<UserInfo>::new());
     let (selected_user, set_selected_user) = signal(Option::<UserInfo>::None);
     let (pin, set_pin) = signal(String::new());
     let (error, set_error) = signal(Option::<String>::None);
     let (loading, set_loading) = signal(false);
 
-    // Initial setup state
-    let (setup_creds, set_setup_creds) = signal(Option::<InitialCredentials>::None);
-    let (setup_checked, set_setup_checked) = signal(false);
-
-    // Check for initial setup, then load users
+    // Check if system is initialized, redirect to setup if not
     Effect::new(move || {
         leptos::task::spawn_local(async move {
-            if let Ok(Some(creds)) = check_initial_setup().await {
-                set_setup_creds.set(Some(creds));
+            match check_system_initialized().await {
+                Ok((has_lang, has_users)) => {
+                    if !has_lang || !has_users {
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            let _ = web_sys::window().unwrap().location().set_href("/setup");
+                        }
+                        return;
+                    }
+                }
+                Err(_) => {}
             }
-            set_setup_checked.set(true);
+            // Load language
+            if let Ok(Some(lang)) = get_config_language().await {
+                i18n.set(I18n::new(&lang));
+            }
             if let Ok(u) = fetch_user_list().await {
                 set_users.set(u);
             }
         });
     });
-
-    let handle_acknowledge = move |_| {
-        leptos::task::spawn_local(async move {
-            let _ = acknowledge_setup().await;
-            set_setup_creds.set(None);
-        });
-    };
 
     let handle_pin_digit = move |digit: &str| {
         set_error.set(None);
@@ -100,100 +103,75 @@ pub fn LoginPage() -> impl IntoView {
                     <img class="login-logo" src="/logo_site.png" alt="RustPOS" />
                 </div>
 
-                // Initial setup screen
-                <Show when=move || setup_creds.get().is_some() && setup_checked.get() fallback=move || view! {
-                    // Normal login flow
-                    <Show when=move || selected_user.get().is_none() fallback=move || {
-                        // PIN entry screen
-                        let user = selected_user.get().unwrap();
-                        view! {
-                            <div class="login-pin-screen">
-                                <h2 class="login-welcome">"Welcome, "{user.username.clone()}</h2>
-                                <p class="login-subtitle">"Enter your PIN"</p>
+                <Show when=move || selected_user.get().is_none() fallback=move || {
+                    // PIN entry screen
+                    let user = selected_user.get().unwrap();
+                    let welcome = i18n.get().t("login.welcome").replace("{name}", &user.username);
+                    view! {
+                        <div class="login-pin-screen">
+                            <h2 class="login-welcome">{welcome}</h2>
+                            <p class="login-subtitle">{move || i18n.get().t("login.enter_pin")}</p>
 
-                                <div class="pin-display">
-                                    {move || {
-                                        let len = pin.get().len();
-                                        (0..len).map(|_| view! { <span class="pin-dot">"*"</span> }).collect_view()
-                                    }}
-                                </div>
-
-                                <Show when=move || error.get().is_some() fallback=|| ()>
-                                    <div class="login-error">{move || error.get().unwrap_or_default()}</div>
-                                </Show>
-
-                                <div class="pin-pad">
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("1") disabled=loading>"1"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("2") disabled=loading>"2"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("3") disabled=loading>"3"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("4") disabled=loading>"4"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("5") disabled=loading>"5"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("6") disabled=loading>"6"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("7") disabled=loading>"7"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("8") disabled=loading>"8"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("9") disabled=loading>"9"</button>
-                                    <button class="pin-btn pin-btn-clear" on:click=handle_pin_clear disabled=loading>"Clear"</button>
-                                    <button class="pin-btn" on:click=move |_| handle_pin_digit("0") disabled=loading>"0"</button>
-                                    <button class="pin-btn pin-btn-ok" on:click=handle_login disabled=move || loading.get() || pin.get().is_empty()>"OK"</button>
-                                </div>
-
-                                <button class="login-back-btn" on:click=handle_back>"Back"</button>
+                            <div class="pin-display">
+                                {move || {
+                                    let len = pin.get().len();
+                                    (0..len).map(|_| view! { <span class="pin-dot">"*"</span> }).collect_view()
+                                }}
                             </div>
-                        }
-                    }>
-                        // User selection screen
-                        <div class="login-user-select">
-                            <h2>"Select User"</h2>
-                            <div class="user-grid">
-                                <For each=move || users.get() key=|u| u.id let:user>
-                                    {
-                                        let user_clone = user.clone();
-                                        let role_label = match user.role.as_str() {
-                                            "admin" => "Admin",
-                                            "cashier" => "Cashier",
-                                            "cook" => "Cook",
-                                            _ => "",
-                                        };
-                                        view! {
-                                            <button class="user-select-btn" on:click=move |_| {
-                                                set_selected_user.set(Some(user_clone.clone()));
-                                                set_pin.set(String::new());
-                                                set_error.set(None);
-                                            }>
-                                                <div class="user-select-icon">
-                                                    {user.username.chars().next().unwrap_or('?').to_uppercase().to_string()}
-                                                </div>
-                                                <div class="user-select-name">{user.username.clone()}</div>
-                                                <div class="user-select-role">{role_label}</div>
-                                            </button>
-                                        }
-                                    }
-                                </For>
+
+                            <Show when=move || error.get().is_some() fallback=|| ()>
+                                <div class="login-error">{move || error.get().unwrap_or_default()}</div>
+                            </Show>
+
+                            <div class="pin-pad">
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("1") disabled=loading>"1"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("2") disabled=loading>"2"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("3") disabled=loading>"3"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("4") disabled=loading>"4"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("5") disabled=loading>"5"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("6") disabled=loading>"6"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("7") disabled=loading>"7"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("8") disabled=loading>"8"</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("9") disabled=loading>"9"</button>
+                                <button class="pin-btn pin-btn-clear" on:click=handle_pin_clear disabled=loading>{move || i18n.get().t("login.clear")}</button>
+                                <button class="pin-btn" on:click=move |_| handle_pin_digit("0") disabled=loading>"0"</button>
+                                <button class="pin-btn pin-btn-ok" on:click=handle_login disabled=move || loading.get() || pin.get().is_empty()>{move || i18n.get().t("login.ok")}</button>
                             </div>
+
+                            <button class="login-back-btn" on:click=handle_back>{move || i18n.get().t("login.back")}</button>
                         </div>
-                    </Show>
+                    }
                 }>
-                    // Setup credentials display
-                    {move || {
-                        setup_creds.get().map(|creds| view! {
-                            <div class="setup-screen">
-                                <h2>"Initial Setup"</h2>
-                                <p class="setup-info">"An admin account has been created. Please save these credentials:"</p>
-                                <div class="setup-credentials">
-                                    <div class="setup-field">
-                                        <span class="setup-label">"Username:"</span>
-                                        <span class="setup-value">{creds.username.clone()}</span>
-                                    </div>
-                                    <div class="setup-field">
-                                        <span class="setup-label">"PIN:"</span>
-                                        <span class="setup-value">{creds.pin.clone()}</span>
-                                    </div>
-                                </div>
-                                <p class="setup-warning">"Please change your PIN after logging in."</p>
-                                <button class="btn-primary setup-continue" on:click=handle_acknowledge>"Continue to Login"</button>
-                            </div>
-                        })
-                    }}
+                    // User selection screen
+                    <div class="login-user-select">
+                        <h2>{move || i18n.get().t("login.select_user")}</h2>
+                        <div class="user-grid">
+                            <For each=move || users.get() key=|u| u.id let:user>
+                                {
+                                    let user_clone = user.clone();
+                                    let role_key = match user.role.as_str() {
+                                        "admin" => "role.admin",
+                                        "cashier" => "role.cashier",
+                                        "cook" => "role.cook",
+                                        _ => "general.unknown",
+                                    };
+                                    view! {
+                                        <button class="user-select-btn" on:click=move |_| {
+                                            set_selected_user.set(Some(user_clone.clone()));
+                                            set_pin.set(String::new());
+                                            set_error.set(None);
+                                        }>
+                                            <div class="user-select-icon">
+                                                {user.username.chars().next().unwrap_or('?').to_uppercase().to_string()}
+                                            </div>
+                                            <div class="user-select-name">{user.username.clone()}</div>
+                                            <div class="user-select-role">{move || i18n.get().t(role_key)}</div>
+                                        </button>
+                                    }
+                                }
+                            </For>
+                        </div>
+                    </div>
                 </Show>
             </div>
         </div>

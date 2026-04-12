@@ -1,6 +1,7 @@
 #![recursion_limit = "512"]
 
 pub mod app;
+pub mod i18n;
 pub mod models;
 pub mod pages;
 pub mod server_fns;

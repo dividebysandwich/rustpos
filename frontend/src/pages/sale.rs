@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -75,6 +76,7 @@ fn setup_tick(_set_tick: WriteSignal<u32>) {}
 
 #[component]
 pub fn SalePage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
     let (user_role, set_user_role) = signal(String::new());
 
@@ -320,19 +322,20 @@ pub fn SalePage() -> impl IntoView {
     };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <Show when=move || canceling_transaction.get().is_some() fallback=|| ()>
             {move || {
                 canceling_transaction.get().map(|_| {
+                    let i = i18n.get();
                     view! {
                         <div class="modal-overlay">
                             <div class="confirmation-modal">
-                                <h3>"Confirm Delete"</h3>
-                                <p>"Are you sure you want to delete this transaction?"</p>
-                                <p class="warning-text">"This action cannot be undone."</p>
+                                <h3>{i.t("general.confirm_delete")}</h3>
+                                <p>{i.t("sale.delete_transaction")}</p>
+                                <p class="warning-text">{i.t("general.cannot_undo")}</p>
                                 <div class="modal-actions">
-                                    <button class="btn-danger" on:click=cancel_sale_handler>"Delete"</button>
-                                    <button class="btn-secondary" on:click=cancel_cancel_sale>"Cancel"</button>
+                                    <button class="btn-danger" on:click=cancel_sale_handler>{i.t("general.delete")}</button>
+                                    <button class="btn-secondary" on:click=cancel_cancel_sale>{i.t("general.cancel")}</button>
                                 </div>
                             </div>
                         </div>
@@ -347,20 +350,20 @@ pub fn SalePage() -> impl IntoView {
                 <button
                     class=move || if active_tab.get() == "sale" { "sale-tab active" } else { "sale-tab" }
                     on:click=move |_| set_active_tab.set("sale".to_string())
-                >"Sale"</button>
+                >{move || i18n.get().t("sale.sale")}</button>
                 <Show when=move || user_role.get() == "admin" || user_role.get() == "cashier" fallback=|| ()>
                     <button
                         class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
                         on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
-                    >"Kitchen"</button>
+                    >{move || i18n.get().t("sale.kitchen")}</button>
                 </Show>
-                <button class="sale-tab logout-tab" on:click=do_logout>"Logout"</button>
+                <button class="sale-tab logout-tab" on:click=do_logout>{move || i18n.get().t("sale.logout")}</button>
             </div>
 
             <Show when=move || active_tab.get() == "sale" fallback=move || view! {
                 // Kitchen status tab (read-only)
                 <div class="kitchen-status-panel">
-                    <h3>"Kitchen Orders"</h3>
+                    <h3>{i18n.get().t("sale.kitchen_orders")}</h3>
                     <Show when=move || kitchen_orders.get().is_empty() fallback=move || view! {
                         <For each=move || kitchen_orders.get()
                             key=|o| (o.transaction_id, o.items.iter().filter(|i| i.completed).count())
@@ -373,9 +376,9 @@ pub fn SalePage() -> impl IntoView {
                                 view! {
                             <div class=card_class>
                                 <div class="kitchen-status-header">
-                                    <strong>{order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}</strong>
+                                    <strong>{order.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}</strong>
                                     {if all_done {
-                                        view! { <span class="kitchen-status-time kitchen-status-complete-badge">"Complete"</span> }.into_any()
+                                        view! { <span class="kitchen-status-time kitchen-status-complete-badge">{i18n.get().t("sale.complete")}</span> }.into_any()
                                     } else {
                                         view! { <span class="kitchen-status-time">{move || format_elapsed(created, tick.get())}</span> }.into_any()
                                     }}
@@ -393,19 +396,19 @@ pub fn SalePage() -> impl IntoView {
                             }
                         </For>
                     }>
-                        <p class="kitchen-empty">"No pending kitchen orders"</p>
+                        <p class="kitchen-empty">{i18n.get().t("sale.no_kitchen_orders")}</p>
                     </Show>
                 </div>
             }>
 
             <div class="sale-grid">
                 <div class="items-section">
-                    <h2>"Items"</h2>
+                    <h2>{i18n.get().t("sale.items")}</h2>
                     <div class="category-tabs">
                         <button
                             class=move || if selected_category.get().is_none() { "active" } else { "" }
                             on:click=move |_| set_selected_category.set(None)
-                        >"All"</button>
+                        >{i18n.get().t("sale.all")}</button>
                         <For each=move || categories.get() key=|cat| cat.id let:cat>
                             {
                                 let cat_id = cat.id;
@@ -440,10 +443,10 @@ pub fn SalePage() -> impl IntoView {
                                             <div class="item-name-badge">{item.name.clone()}</div>
                                         </div>
                                         <Show when=move || is_out fallback=|| ()>
-                                            <div class="out-of-stock">"Out of Stock"</div>
+                                            <div class="out-of-stock">{i18n.get().t("sale.out_of_stock")}</div>
                                         </Show>
                                         {stock_warn.map(|q| view! {
-                                            <div class="stock-warning">{format!("{} left", q)}</div>
+                                            <div class="stock-warning">{i18n.get().t("sale.items_left").replace("{n}", &q.to_string())}</div>
                                         })}
                                     </button>
                                 }
@@ -459,19 +462,21 @@ pub fn SalePage() -> impl IntoView {
                             <div class="start-transaction">
                                 <input
                                     type="text"
-                                    placeholder="Customer name (optional)"
+                                    placeholder=move || i18n.get().t("sale.customer_optional")
                                     on:input=move |ev| set_customer_name.set(event_target_value(&ev))
                                     value=move || customer_name.get()
                                 />
-                                <button class="btn-primary" on:click=start_transaction>"New Transaction"</button>
+                                <button class="btn-primary" on:click=start_transaction>{move || i18n.get().t("sale.new_transaction")}</button>
 
                                 <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
                                     <button
                                         class="btn-secondary"
                                         on:click=move |_| set_show_open_transactions.set(!show_open_transactions.get())
                                     >
-                                        {move || if show_open_transactions.get() { "Hide" } else { "Show" }}
-                                        " Open Transactions ("{move || open_transactions.get().len()}")"
+                                        {move || if show_open_transactions.get() { i18n.get().t("sale.hide") } else { i18n.get().t("sale.show") }}
+                                        " "
+                                        {move || i18n.get().t("sale.open_transactions")}
+                                        " ("{move || open_transactions.get().len()}")"
                                     </button>
                                 </Show>
 
@@ -480,7 +485,7 @@ pub fn SalePage() -> impl IntoView {
                                     last_closed_transaction.get().map(|t| {
                                         view! {
                                             <div class="last-change-display">
-                                                <strong>"Last Change: "</strong>
+                                                <strong>{i18n.get().t("sale.last_change")}</strong>
                                                 {format!("{} {:.2}", CURRENCY_SYMBOL, t.change_amount.unwrap())}
                                             </div>
                                         }
@@ -496,10 +501,10 @@ pub fn SalePage() -> impl IntoView {
                                                 view! {
                                                     <div class="open-transaction-item">
                                                         <div>
-                                                            <strong>{trans.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}</strong>
+                                                            <strong>{trans.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}</strong>
                                                             <span>" - "{format!("{} {:.2}", CURRENCY_SYMBOL, trans.total)}</span>
                                                         </div>
-                                                        <button class="btn-small" on:click=move |_| resume_transaction(trans_id)>"Resume"</button>
+                                                        <button class="btn-small" on:click=move |_| resume_transaction(trans_id)>{i18n.get().t("sale.resume")}</button>
                                                     </div>
                                                 }
                                             }
@@ -513,15 +518,15 @@ pub fn SalePage() -> impl IntoView {
                             <div class="transaction-header">
                                 <table class="customer-table"><tbody>
                                     <tr>
-                                        <td><strong>"Customer: "</strong></td>
+                                        <td><strong>{i18n.get().t("sale.customer")}</strong></td>
                                         <td>
-                                            <input type="text" placeholder="Walk-in"
+                                            <input type="text" placeholder=move || i18n.get().t("general.walkin")
                                                 on:input=move |ev| set_customer_name.set(event_target_value(&ev))
                                                 value=move || customer_name.get()
                                             />
                                         </td>
                                         <td class="customer-table-actions">
-                                            <button class="btn-primary-small" on:click=do_update_transaction>"Update"</button>
+                                            <button class="btn-primary-small" on:click=do_update_transaction>{i18n.get().t("sale.update")}</button>
                                         </td>
                                     </tr>
                                 </tbody></table>
@@ -548,17 +553,17 @@ pub fn SalePage() -> impl IntoView {
                             </div>
 
                             <div class="transaction-total">
-                                <strong>"Total: "</strong>
+                                <strong>{i18n.get().t("sale.total")}</strong>
                                 <strong>{move || format!("{} {:.2}", CURRENCY_SYMBOL, transaction_total())}</strong>
                             </div>
 
                             <div class="payment-change-wrapper">
                                 <div class="payment-section">
-                                    <strong>"Cash: "</strong>
+                                    <strong>{i18n.get().t("sale.cash")}</strong>
                                     <input type="text" class="payment-input" placeholder="" readonly value=move || payment_amount.get() />
                                 </div>
                                 <div class="change-section">
-                                    <strong>"Change: "</strong>
+                                    <strong>{i18n.get().t("sale.change")}</strong>
                                     <input type="text" class="change-input" placeholder="" readonly
                                         value=move || {
                                             match payment_amount.get().parse::<f64>() {
@@ -576,11 +581,11 @@ pub fn SalePage() -> impl IntoView {
                                     <button
                                         class=move || if !use_quick_cash.get() { "keypad-toggle-btn active" } else { "keypad-toggle-btn" }
                                         on:click=move |_| set_use_quick_cash.set(false)
-                                    >"Keypad"</button>
+                                    >{move || i18n.get().t("sale.keypad")}</button>
                                     <button
                                         class=move || if use_quick_cash.get() { "keypad-toggle-btn active" } else { "keypad-toggle-btn" }
                                         on:click=move |_| set_use_quick_cash.set(true)
-                                    >"Quick Cash"</button>
+                                    >{move || i18n.get().t("sale.quick_cash")}</button>
                                 </div>
 
                                 <Show when=move || !use_quick_cash.get() fallback=move || view! {
@@ -598,10 +603,10 @@ pub fn SalePage() -> impl IntoView {
                                         </For>
                                         <button class="quick-cash-btn quick-cash-exact"
                                             on:click=move |_| set_payment_amount.set(format!("{:.2}", transaction_total()))
-                                        >"Exact"</button>
+                                        >{move || i18n.get().t("sale.exact")}</button>
                                         <button class="quick-cash-btn quick-cash-clear"
                                             on:click=move |_| set_payment_amount.set(String::new())
-                                        >"Clear"</button>
+                                        >{move || i18n.get().t("sale.clear")}</button>
                                     </div>
                                 }>
                                     <div class="keypad">
@@ -624,14 +629,14 @@ pub fn SalePage() -> impl IntoView {
                             </div>
 
                             <div class="action-buttons">
-                                <button class="action-button cancel" on:click=move |_| confirm_cancel_sale(current_transaction.get().unwrap_or_default())>"Cancel"</button>
-                                <button class="action-button pause" on:click=pause_sale>"Back"</button>
-                                <button class="action-button sale" on:click=checkout>"Checkout"</button>
+                                <button class="action-button cancel" on:click=move |_| confirm_cancel_sale(current_transaction.get().unwrap_or_default())>{move || i18n.get().t("sale.cancel")}</button>
+                                <button class="action-button pause" on:click=pause_sale>{move || i18n.get().t("sale.back")}</button>
+                                <button class="action-button sale" on:click=checkout>{move || i18n.get().t("sale.checkout")}</button>
                             </div>
 
                             <Show when=move || change_amount.get().is_some() fallback=|| ()>
                                 <div class="change-display">
-                                    <h3>"Change: "{move || format!("{} {:.2}", CURRENCY_SYMBOL, change_amount.get().unwrap())}</h3>
+                                    <h3>{move || i18n.get().t("sale.change")}{move || format!("{} {:.2}", CURRENCY_SYMBOL, change_amount.get().unwrap())}</h3>
                                 </div>
                             </Show>
                         </div>

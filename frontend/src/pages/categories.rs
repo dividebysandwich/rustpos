@@ -1,11 +1,13 @@
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
 #[component]
 pub fn CategoriesPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -90,27 +92,29 @@ pub fn CategoriesPage() -> impl IntoView {
     };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div>
             <div class="page-header">
-                <h2>"Categories"</h2>
+                <h2>{move || i18n.get().t("categories.title")}</h2>
                 <button class="btn-primary" on:click=start_create
                     disabled=move || editing_category.get().is_some() || creating_category.get()
-                >"Add New Category"</button>
+                >{move || i18n.get().t("categories.add")}</button>
             </div>
 
             <Show when=move || deleting_category.get().is_some() fallback=|| ()>
                 {move || {
-                    deleting_category.get().map(|(_, name)| {
+                    deleting_category.get().map(|(_, cat_name)| {
+                        let i = i18n.get();
+                        let confirm_msg = i.t("categories.confirm_delete").replace("{name}", &cat_name);
                         view! {
                             <div class="modal-overlay">
                                 <div class="confirmation-modal">
-                                    <h3>"Confirm Delete"</h3>
-                                    <p>"Are you sure you want to delete the category \""<strong>{name}</strong>"\"?"</p>
-                                    <p class="warning-text">"Warning: This will NOT delete items in this category, but they may become harder to find."</p>
+                                    <h3>{i.t("general.confirm_delete")}</h3>
+                                    <p>{confirm_msg}</p>
+                                    <p class="warning-text">{i.t("categories.delete_warning")}</p>
                                     <div class="modal-actions">
-                                        <button class="btn-danger" on:click=delete_category_handler>"Delete"</button>
-                                        <button class="btn-secondary" on:click=cancel_delete>"Cancel"</button>
+                                        <button class="btn-danger" on:click=delete_category_handler>{i.t("general.delete")}</button>
+                                        <button class="btn-secondary" on:click=cancel_delete>{i.t("general.cancel")}</button>
                                     </div>
                                 </div>
                             </div>
@@ -121,26 +125,26 @@ pub fn CategoriesPage() -> impl IntoView {
 
             <Show when=move || editing_category.get().is_some() || creating_category.get() fallback=|| ()>
                 <div class="edit-form">
-                    <h3>{move || if creating_category.get() { "Create New Category" } else { "Edit Category" }}</h3>
+                    <h3>{move || if creating_category.get() { i18n.get().t("categories.create") } else { i18n.get().t("categories.edit") }}</h3>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>"Name"</label>
+                            <label>{move || i18n.get().t("general.name")}</label>
                             <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
-                            <label>"Description"</label>
+                            <label>{move || i18n.get().t("general.description")}</label>
                             <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button class="btn-success" on:click=save_category>"Save"</button>
-                        <button class="btn-secondary" on:click=cancel_edit>"Cancel"</button>
+                        <button class="btn-success" on:click=save_category>{move || i18n.get().t("general.save")}</button>
+                        <button class="btn-secondary" on:click=cancel_edit>{move || i18n.get().t("general.cancel")}</button>
                     </div>
                 </div>
             </Show>
 
             <table class="data-table">
-                <thead><tr><th>"Name"</th><th>"Description"</th><th></th></tr></thead>
+                <thead><tr><th>{move || i18n.get().t("general.name")}</th><th>{move || i18n.get().t("general.description")}</th><th></th></tr></thead>
                 <tbody>
                     <For each=move || categories.get() key=|c| (c.id, c.description.clone(), c.name.clone()) let:category>
                         {
@@ -154,10 +158,10 @@ pub fn CategoriesPage() -> impl IntoView {
                                     <td class="data-table-actions">
                                         <button class="btn-small" on:click=move |_| start_edit(category_clone.clone())
                                             disabled=move || editing_category.get().is_some() || creating_category.get()
-                                        >"Edit"</button>
+                                        >{move || i18n.get().t("general.edit")}</button>
                                         <button class="btn-small btn-danger" on:click=move |_| confirm_delete(category_id, category_name.clone())
                                             disabled=move || editing_category.get().is_some() || creating_category.get()
-                                        >"Delete"</button>
+                                        >{move || i18n.get().t("general.delete")}</button>
                                     </td>
                                 </tr>
                             }

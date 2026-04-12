@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -79,9 +80,9 @@ fn redirect_to_login() {
 
 #[component]
 pub fn KitchenPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
 
-    // Auth check
     Effect::new(move || {
         leptos::task::spawn_local(async move {
             match get_current_user().await {
@@ -104,11 +105,8 @@ pub fn KitchenPage() -> impl IntoView {
     let (completed_orders, set_completed_orders) = signal(Vec::<KitchenOrder>::new());
     let (show_completed, set_show_completed) = signal(false);
     let (reload, set_reload) = signal(0u32);
-    // Track known order IDs to detect new arrivals
     let (known_orders, set_known_orders) = signal(Vec::<Uuid>::new());
-    // New orders that should blink (will be cleared after 3s)
     let (new_orders, set_new_orders) = signal(Vec::<Uuid>::new());
-    // Tick signal for elapsed time display
     let (tick, set_tick) = signal(0u32);
 
     Effect::new(move || {
@@ -120,7 +118,6 @@ pub fn KitchenPage() -> impl IntoView {
         reload.get();
         leptos::task::spawn_local(async move {
             if let Ok(o) = fetch_kitchen_orders().await {
-                // Detect new orders
                 let prev = known_orders.get();
                 let mut fresh: Vec<Uuid> = Vec::new();
                 for order in &o {
@@ -130,7 +127,6 @@ pub fn KitchenPage() -> impl IntoView {
                 }
                 if !fresh.is_empty() {
                     set_new_orders.update(|v| v.extend(fresh.iter().cloned()));
-                    // Clear blink after 3 seconds
                     #[cfg(target_arch = "wasm32")]
                     {
                         use wasm_bindgen::prelude::*;
@@ -157,7 +153,6 @@ pub fn KitchenPage() -> impl IntoView {
     });
 
     let mark_item_done = move |ti_id: Uuid| {
-        // Optimistic update: mutate orders signal directly so the <For> key changes
         set_orders.update(|orders| {
             for order in orders.iter_mut() {
                 for item in order.items.iter_mut() {
@@ -200,24 +195,24 @@ pub fn KitchenPage() -> impl IntoView {
     };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div class="kitchen-page">
             <div class="kitchen-header">
-                <h1>"Kitchen Display"</h1>
+                <h1>{move || i18n.get().t("kitchen.title")}</h1>
                 <div class="kitchen-header-actions">
                     <button
                         class=move || if show_completed.get() { "btn-primary kitchen-header-btn" } else { "btn-secondary kitchen-header-btn" }
                         on:click=toggle_completed
-                    >{move || if show_completed.get() { "Hide Completed" } else { "Show Completed" }}</button>
-                    <button class="btn-primary kitchen-header-btn" on:click=move |_| set_reload.update(|v| *v += 1)>"Refresh"</button>
-                    <button class="btn-secondary kitchen-header-btn" on:click=do_logout>"Logout"</button>
+                    >{move || if show_completed.get() { i18n.get().t("kitchen.hide_completed") } else { i18n.get().t("kitchen.show_completed") }}</button>
+                    <button class="btn-primary kitchen-header-btn" on:click=move |_| set_reload.update(|v| *v += 1)>{move || i18n.get().t("kitchen.refresh")}</button>
+                    <button class="btn-secondary kitchen-header-btn" on:click=do_logout>{move || i18n.get().t("kitchen.logout")}</button>
                 </div>
             </div>
 
             <Show when=move || !orders.get().is_empty() fallback=move || view! {
                 <div class="kitchen-empty-msg">
-                    <h2>"No pending orders"</h2>
-                    <p>"New kitchen orders will appear here automatically"</p>
+                    <h2>{move || i18n.get().t("kitchen.no_pending")}</h2>
+                    <p>{move || i18n.get().t("kitchen.auto_appear")}</p>
                 </div>
             }>
                 <div class="kitchen-grid">
@@ -236,7 +231,7 @@ pub fn KitchenPage() -> impl IntoView {
                                 <div class=card_class>
                                     <div class="kitchen-order-header">
                                         <span class="kitchen-customer">
-                                            {order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}
+                                            {order.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}
                                         </span>
                                         <span class="kitchen-time">{move || format_elapsed(created, tick.get())}</span>
                                     </div>
@@ -250,12 +245,12 @@ pub fn KitchenPage() -> impl IntoView {
                                                         <span class="kitchen-item-qty">{format!("{}x", item.quantity)}</span>
                                                         <span class="kitchen-item-name">{item.item_name.clone()}</span>
                                                         {if done {
-                                                            view! { <span class="kitchen-done-check">"Done"</span> }.into_any()
+                                                            view! { <span class="kitchen-done-check">{i18n.get().t("kitchen.done")}</span> }.into_any()
                                                         } else {
                                                             view! {
                                                                 <button class="kitchen-done-btn"
                                                                     on:click=move |_| mark_item_done(ti_id)
-                                                                >"Done"</button>
+                                                                >{i18n.get().t("kitchen.done")}</button>
                                                             }.into_any()
                                                         }}
                                                     </div>
@@ -266,7 +261,7 @@ pub fn KitchenPage() -> impl IntoView {
                                     <button class="kitchen-complete-order-btn"
                                         on:click=move |_| mark_order_done(t_id)
                                         disabled=all_done
-                                    >{if all_done { "Order Complete" } else { "Complete Order" }}</button>
+                                    >{if all_done { i18n.get().t("kitchen.order_complete") } else { i18n.get().t("kitchen.complete_order") }}</button>
                                 </div>
                             }
                         }
@@ -275,16 +270,16 @@ pub fn KitchenPage() -> impl IntoView {
             </Show>
 
             <Show when=move || show_completed.get() fallback=|| ()>
-                <h2 class="kitchen-section-title">"Completed Orders"</h2>
-                <Show when=move || !completed_orders.get().is_empty() fallback=|| view! {
-                    <p class="kitchen-empty">"No completed orders yet"</p>
+                <h2 class="kitchen-section-title">{move || i18n.get().t("kitchen.completed_orders")}</h2>
+                <Show when=move || !completed_orders.get().is_empty() fallback=move || view! {
+                    <p class="kitchen-empty">{move || i18n.get().t("kitchen.no_completed")}</p>
                 }>
                     <div class="kitchen-grid">
                         <For each=move || completed_orders.get() key=|o| o.transaction_id let:order>
                             <div class="kitchen-order-card kitchen-order-completed">
                                 <div class="kitchen-order-header">
                                     <span class="kitchen-customer">
-                                        {order.customer_name.clone().unwrap_or_else(|| "Walk-in".to_string())}
+                                        {order.customer_name.clone().unwrap_or_else(|| i18n.get().t("general.walkin"))}
                                     </span>
                                     <span class="kitchen-time">{order.created_at.format("%H:%M").to_string()}</span>
                                 </div>
@@ -293,7 +288,7 @@ pub fn KitchenPage() -> impl IntoView {
                                         <div class="kitchen-item-row kitchen-item-done">
                                             <span class="kitchen-item-qty">{format!("{}x", item.quantity)}</span>
                                             <span class="kitchen-item-name">{item.item_name.clone()}</span>
-                                            <span class="kitchen-done-check">"Done"</span>
+                                            <span class="kitchen-done-check">{i18n.get().t("kitchen.done")}</span>
                                         </div>
                                     </For>
                                 </div>

@@ -150,6 +150,17 @@ async fn main() {
     .await
     .expect("Failed to create sessions table");
 
+    // Configuration table
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        )"#,
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create config table");
+
     // Create indexes
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)")
         .execute(&db)
@@ -177,59 +188,6 @@ async fn main() {
     .execute(&db)
     .await
     .ok();
-
-    // Create initial admin user if no users exist
-    {
-        use sha2::{Sha256, Digest};
-        use rand::Rng;
-
-        let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
-            .fetch_one(&db)
-            .await
-            .unwrap_or(0);
-
-        if user_count == 0 {
-            let mut rng = rand::thread_rng();
-            let pin_num: u32 = rng.gen_range(1000..10000);
-            let pin_str = format!("{:04}", pin_num);
-
-            let mut hasher = Sha256::new();
-            hasher.update(pin_str.as_bytes());
-            let pin_hash = format!("{:x}", hasher.finalize());
-
-            let id = uuid::Uuid::new_v4();
-            let now = chrono::Utc::now();
-
-            sqlx::query(
-                "INSERT INTO users (id, username, pin_hash, role, created_at, updated_at) VALUES (?, ?, ?, 'admin', ?, ?)"
-            )
-            .bind(id)
-            .bind("admin")
-            .bind(&pin_hash)
-            .bind(now)
-            .bind(now)
-            .execute(&db)
-            .await
-            .expect("Failed to create initial admin user");
-
-            // Save credentials for the setup page
-            let creds = format!("{}\n{}", "admin", pin_str);
-            std::fs::write("data/initial_credentials.txt", &creds).ok();
-
-            println!("Created initial admin user. PIN: {}", pin_str);
-
-            // Print credentials if printer available
-            {
-                use rustpos::printer::{find_printer, print_credentials};
-                let pin_for_print = pin_str.clone();
-                let _ = tokio::task::spawn_blocking(move || {
-                    if let Ok((_path, mut printer)) = find_printer() {
-                        let _ = print_credentials(&mut printer, "admin", &pin_for_print);
-                    }
-                }).await;
-            }
-        }
-    }
 
     println!("Database initialized successfully!");
 

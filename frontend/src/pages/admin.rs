@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 
+use crate::i18n::{available_languages, I18n};
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -12,6 +13,7 @@ fn redirect_to_login() {
 
 #[component]
 pub fn AdminPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
     let (users, set_users) = signal(Vec::<UserInfo>::new());
     let (error, set_error) = signal(Option::<String>::None);
@@ -135,7 +137,7 @@ pub fn AdminPage() -> impl IntoView {
         let role = new_role.get();
         let pin_val = new_pin.get();
         if name.is_empty() || pin_val.len() < 4 {
-            set_error.set(Some("Name required, PIN must be at least 4 digits".into()));
+            set_error.set(Some(i18n.get().t("admin.name_pin_required")));
             return;
         }
         set_error.set(None);
@@ -251,27 +253,31 @@ pub fn AdminPage() -> impl IntoView {
     };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
 
         // Delete confirmation modal
         <Show when=move || deleting_user.get().is_some() fallback=|| ()>
-            {move || deleting_user.get().map(|u| view! {
-                <div class="modal-overlay">
-                    <div class="confirmation-modal">
-                        <h3>"Delete User"</h3>
-                        <p>"Are you sure you want to delete user \""{ u.username.clone() }"\"?"</p>
-                        <p class="warning-text">"This action cannot be undone."</p>
-                        <div class="modal-actions">
-                            <button class="btn-danger" on:click=do_delete>"Delete"</button>
-                            <button class="btn-secondary" on:click=cancel_delete>"Cancel"</button>
+            {move || deleting_user.get().map(|u| {
+                let username = u.username.clone();
+                let confirm_msg = i18n.get().t("admin.confirm_delete_user").replace("{name}", &username);
+                view! {
+                    <div class="modal-overlay">
+                        <div class="confirmation-modal">
+                            <h3>{move || i18n.get().t("admin.delete_user")}</h3>
+                            <p>{confirm_msg}</p>
+                            <p class="warning-text">{move || i18n.get().t("general.cannot_undo")}</p>
+                            <div class="modal-actions">
+                                <button class="btn-danger" on:click=do_delete>{move || i18n.get().t("general.delete")}</button>
+                                <button class="btn-secondary" on:click=cancel_delete>{move || i18n.get().t("general.cancel")}</button>
+                            </div>
                         </div>
                     </div>
-                </div>
+                }
             })}
         </Show>
 
         <div class="admin-page">
-            <h2>"User Management"</h2>
+            <h2>{move || i18n.get().t("admin.user_management")}</h2>
 
             <Show when=move || error.get().is_some() fallback=|| ()>
                 <div class="admin-error">{move || error.get().unwrap_or_default()}</div>
@@ -284,12 +290,13 @@ pub fn AdminPage() -> impl IntoView {
                         {
                             let user_edit = user.clone();
                             let user_del = user.clone();
-                            let role_label = match user.role.as_str() {
-                                "admin" => "Admin",
-                                "cashier" => "Cashier",
-                                "cook" => "Cook",
-                                _ => "Unknown",
+                            let role_key = match user.role.as_str() {
+                                "admin" => "role.admin",
+                                "cashier" => "role.cashier",
+                                "cook" => "role.cook",
+                                _ => "general.unknown",
                             };
+                            let role_label = i18n.get().t(role_key);
                             view! {
                                 <div class="admin-user-row">
                                     <div class="admin-user-info">
@@ -297,60 +304,60 @@ pub fn AdminPage() -> impl IntoView {
                                         <span class="admin-user-role">{role_label}</span>
                                     </div>
                                     <div class="admin-user-actions">
-                                        <button class="btn-primary-small" on:click=move |_| start_edit(user_edit.clone())>"Edit"</button>
-                                        <button class="btn-danger-small" on:click=move |_| confirm_delete(user_del.clone())>"Delete"</button>
+                                        <button class="btn-primary-small" on:click=move |_| start_edit(user_edit.clone())>{move || i18n.get().t("general.edit")}</button>
+                                        <button class="btn-danger-small" on:click=move |_| confirm_delete(user_del.clone())>{move || i18n.get().t("general.delete")}</button>
                                     </div>
                                 </div>
                             }
                         }
                     </For>
                 </div>
-                <button class="btn-primary admin-add-btn" on:click=start_create>"Add User"</button>
+                <button class="btn-primary admin-add-btn" on:click=start_create>{move || i18n.get().t("admin.add_user")}</button>
             </Show>
 
             // Create user form
             <Show when=move || creating.get() fallback=|| ()>
                 <div class="admin-form">
-                    <h3>"Create New User"</h3>
+                    <h3>{move || i18n.get().t("admin.create_user")}</h3>
 
                     <div class="admin-form-field">
-                        <label>"Username"</label>
+                        <label>{move || i18n.get().t("admin.username")}</label>
                         <div class="admin-input-row">
-                            <input type="text" readonly value=move || new_name.get() placeholder="Tap keyboard to type" />
+                            <input type="text" readonly value=move || new_name.get() placeholder=move || i18n.get().t("admin.tap_keyboard") />
                             <button class="btn-secondary-small" on:click=move |_| {
                                 if kb_target.get() == Some("new_name".into()) {
                                     set_kb_target.set(None);
                                 } else {
                                     set_kb_target.set(Some("new_name".into()));
                                 }
-                            }>{move || if kb_target.get() == Some("new_name".into()) { "Hide KB" } else { "Keyboard" }}</button>
+                            }>{move || if kb_target.get() == Some("new_name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
                         </div>
                     </div>
 
                     <Show when=move || kb_target.get() == Some("new_name".into()) fallback=|| ()>
-                        <OnScreenKeyboard on_key=on_kb_key.clone() shift=kb_shift />
+                        <OnScreenKeyboard on_key=on_kb_key.clone() shift=kb_shift i18n=i18n />
                     </Show>
 
                     <div class="admin-form-field">
-                        <label>"Role"</label>
+                        <label>{move || i18n.get().t("admin.role")}</label>
                         <div class="admin-role-buttons">
                             <button
                                 class=move || if new_role.get() == "admin" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_new_role.set("admin".into())
-                            >"Admin"</button>
+                            >{move || i18n.get().t("role.admin")}</button>
                             <button
                                 class=move || if new_role.get() == "cashier" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_new_role.set("cashier".into())
-                            >"Cashier"</button>
+                            >{move || i18n.get().t("role.cashier")}</button>
                             <button
                                 class=move || if new_role.get() == "cook" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_new_role.set("cook".into())
-                            >"Cook"</button>
+                            >{move || i18n.get().t("role.cook")}</button>
                         </div>
                     </div>
 
                     <div class="admin-form-field">
-                        <label>"PIN"</label>
+                        <label>{move || i18n.get().t("admin.pin")}</label>
                         <div class="pin-display pin-display-small">
                             {move || {
                                 let len = new_pin.get().len();
@@ -367,15 +374,15 @@ pub fn AdminPage() -> impl IntoView {
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("7", "new")>"7"</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("8", "new")>"8"</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("9", "new")>"9"</button>
-                            <button class="pin-btn pin-btn-sm pin-btn-clear" on:click=move |_| pin_clear("new")>"Clear"</button>
+                            <button class="pin-btn pin-btn-sm pin-btn-clear" on:click=move |_| pin_clear("new")>{move || i18n.get().t("login.clear")}</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("0", "new")>"0"</button>
                             <button class="pin-btn pin-btn-sm pin-btn-ok" disabled=true>""</button>
                         </div>
                     </div>
 
                     <div class="admin-form-actions">
-                        <button class="btn-primary" on:click=save_create>"Create"</button>
-                        <button class="btn-secondary" on:click=cancel_create>"Cancel"</button>
+                        <button class="btn-primary" on:click=save_create>{move || i18n.get().t("admin.create")}</button>
+                        <button class="btn-secondary" on:click=cancel_create>{move || i18n.get().t("general.cancel")}</button>
                     </div>
                 </div>
             </Show>
@@ -383,46 +390,46 @@ pub fn AdminPage() -> impl IntoView {
             // Edit user form
             <Show when=move || editing_user.get().is_some() fallback=|| ()>
                 <div class="admin-form">
-                    <h3>"Edit User"</h3>
+                    <h3>{move || i18n.get().t("admin.edit_user")}</h3>
 
                     <div class="admin-form-field">
-                        <label>"Username"</label>
+                        <label>{move || i18n.get().t("admin.username")}</label>
                         <div class="admin-input-row">
-                            <input type="text" readonly value=move || edit_name.get() placeholder="Tap keyboard to type" />
+                            <input type="text" readonly value=move || edit_name.get() placeholder=move || i18n.get().t("admin.tap_keyboard") />
                             <button class="btn-secondary-small" on:click=move |_| {
                                 if kb_target.get() == Some("edit_name".into()) {
                                     set_kb_target.set(None);
                                 } else {
                                     set_kb_target.set(Some("edit_name".into()));
                                 }
-                            }>{move || if kb_target.get() == Some("edit_name".into()) { "Hide KB" } else { "Keyboard" }}</button>
+                            }>{move || if kb_target.get() == Some("edit_name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
                         </div>
                     </div>
 
                     <Show when=move || kb_target.get() == Some("edit_name".into()) fallback=|| ()>
-                        <OnScreenKeyboard on_key=on_kb_key.clone() shift=kb_shift />
+                        <OnScreenKeyboard on_key=on_kb_key.clone() shift=kb_shift i18n=i18n />
                     </Show>
 
                     <div class="admin-form-field">
-                        <label>"Role"</label>
+                        <label>{move || i18n.get().t("admin.role")}</label>
                         <div class="admin-role-buttons">
                             <button
                                 class=move || if edit_role.get() == "admin" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_edit_role.set("admin".into())
-                            >"Admin"</button>
+                            >{move || i18n.get().t("role.admin")}</button>
                             <button
                                 class=move || if edit_role.get() == "cashier" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_edit_role.set("cashier".into())
-                            >"Cashier"</button>
+                            >{move || i18n.get().t("role.cashier")}</button>
                             <button
                                 class=move || if edit_role.get() == "cook" { "role-btn role-btn-active" } else { "role-btn" }
                                 on:click=move |_| set_edit_role.set("cook".into())
-                            >"Cook"</button>
+                            >{move || i18n.get().t("role.cook")}</button>
                         </div>
                     </div>
 
                     <div class="admin-form-field">
-                        <label>"New PIN (leave empty to keep current)"</label>
+                        <label>{move || i18n.get().t("admin.new_pin_hint")}</label>
                         <div class="pin-display pin-display-small">
                             {move || {
                                 let len = edit_pin.get().len();
@@ -439,18 +446,52 @@ pub fn AdminPage() -> impl IntoView {
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("7", "edit")>"7"</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("8", "edit")>"8"</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("9", "edit")>"9"</button>
-                            <button class="pin-btn pin-btn-sm pin-btn-clear" on:click=move |_| pin_clear("edit")>"Clear"</button>
+                            <button class="pin-btn pin-btn-sm pin-btn-clear" on:click=move |_| pin_clear("edit")>{move || i18n.get().t("login.clear")}</button>
                             <button class="pin-btn pin-btn-sm" on:click=move |_| on_pin_key("0", "edit")>"0"</button>
                             <button class="pin-btn pin-btn-sm pin-btn-ok" disabled=true>""</button>
                         </div>
                     </div>
 
                     <div class="admin-form-actions">
-                        <button class="btn-primary" on:click=save_edit>"Save"</button>
-                        <button class="btn-secondary" on:click=cancel_edit>"Cancel"</button>
+                        <button class="btn-primary" on:click=save_edit>{move || i18n.get().t("general.save")}</button>
+                        <button class="btn-secondary" on:click=cancel_edit>{move || i18n.get().t("general.cancel")}</button>
                     </div>
                 </div>
             </Show>
+        </div>
+
+        // Language setting section
+        <div class="admin-page" style="margin-top: 2rem;">
+            <h2>{move || i18n.get().t("admin.language_setting")}</h2>
+            <div class="language-grid">
+                {available_languages().into_iter().map(|(code, name)| {
+                    let code_str = code.to_string();
+                    let code_for_class = code.to_string();
+                    view! {
+                        <button
+                            class=move || {
+                                if i18n.get().lang == code_for_class {
+                                    "language-btn language-btn-active"
+                                } else {
+                                    "language-btn"
+                                }
+                            }
+                            on:click=move |_| {
+                                let lang = code_str.clone();
+                                leptos::task::spawn_local(async move {
+                                    let _ = set_language_admin(lang).await;
+                                    #[cfg(target_arch = "wasm32")]
+                                    {
+                                        let _ = web_sys::window().unwrap().location().reload();
+                                    }
+                                });
+                            }
+                        >
+                            <span class="language-name">{name}</span>
+                        </button>
+                    }
+                }).collect_view()}
+            </div>
         </div>
         </Show>
     }
@@ -460,6 +501,7 @@ pub fn AdminPage() -> impl IntoView {
 fn OnScreenKeyboard(
     on_key: impl Fn(String) + Copy + Send + 'static,
     shift: ReadSignal<bool>,
+    i18n: RwSignal<I18n>,
 ) -> impl IntoView {
     let rows_lower = vec![
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
@@ -487,7 +529,7 @@ fn OnScreenKeyboard(
                                     <button
                                         class=move || if shift.get() { "osk-key osk-key-wide osk-key-active" } else { "osk-key osk-key-wide" }
                                         on:click=move |_| on_key_shift("Shift".into())
-                                    >"Shift"</button>
+                                    >{move || i18n.get().t("keyboard.shift")}</button>
                                 })
                             } else {
                                 None
@@ -505,7 +547,7 @@ fn OnScreenKeyboard(
                             {if row_idx == 3 {
                                 let on_key_bs = on_key;
                                 Some(view! {
-                                    <button class="osk-key osk-key-wide" on:click=move |_| on_key_bs("Backspace".into())>"Bksp"</button>
+                                    <button class="osk-key osk-key-wide" on:click=move |_| on_key_bs("Backspace".into())>{move || i18n.get().t("keyboard.bksp")}</button>
                                 })
                             } else {
                                 None
@@ -519,8 +561,8 @@ fn OnScreenKeyboard(
                     let on_key_space = on_key;
                     let on_key_enter = on_key;
                     view! {
-                        <button class="osk-key osk-key-space" on:click=move |_| on_key_space("Space".into())>"Space"</button>
-                        <button class="osk-key osk-key-wide" on:click=move |_| on_key_enter("Enter".into())>"Enter"</button>
+                        <button class="osk-key osk-key-space" on:click=move |_| on_key_space("Space".into())>{move || i18n.get().t("keyboard.space")}</button>
+                        <button class="osk-key osk-key-wide" on:click=move |_| on_key_enter("Enter".into())>{move || i18n.get().t("keyboard.enter")}</button>
                     }
                 }
             </div>

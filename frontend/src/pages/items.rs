@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -59,6 +60,7 @@ fn handle_image_file(ev: leptos::ev::Event, set_image_preview: WriteSignal<Optio
 
 #[component]
 pub fn ItemsPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -202,47 +204,50 @@ pub fn ItemsPage() -> impl IntoView {
     let remove_image = move |_| { set_image_preview.set(None); };
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div>
             <div class="page-header">
-                <h2>"Items"</h2>
+                <h2>{move || i18n.get().t("items.title")}</h2>
                 <button class="btn-primary" on:click=start_create
                     disabled=move || editing_item.get().is_some() || creating_item.get()
-                >"Add New Item"</button>
+                >{move || i18n.get().t("items.add_item")}</button>
             </div>
 
             <Show when=move || deleting_item.get().is_some() fallback=|| ()>
                 {move || {
-                    deleting_item.get().map(|(_, name)| view! {
-                        <div class="modal-overlay">
-                            <div class="confirmation-modal">
-                                <h3>"Confirm Delete"</h3>
-                                <p>"Are you sure you want to delete \""<strong>{name}</strong>"\"?"</p>
-                                <p class="warning-text">"This action cannot be undone."</p>
-                                <div class="modal-actions">
-                                    <button class="btn-danger" on:click=delete_item_handler>"Delete"</button>
-                                    <button class="btn-secondary" on:click=cancel_delete>"Cancel"</button>
+                    deleting_item.get().map(|(_, item_name)| {
+                        let confirm_msg = i18n.get().t("items.confirm_delete").replace("{name}", &item_name);
+                        view! {
+                            <div class="modal-overlay">
+                                <div class="confirmation-modal">
+                                    <h3>{i18n.get().t("general.confirm_delete")}</h3>
+                                    <p>{confirm_msg}</p>
+                                    <p class="warning-text">{i18n.get().t("general.cannot_undo")}</p>
+                                    <div class="modal-actions">
+                                        <button class="btn-danger" on:click=delete_item_handler>{i18n.get().t("general.delete")}</button>
+                                        <button class="btn-secondary" on:click=cancel_delete>{i18n.get().t("general.cancel")}</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        }
                     })
                 }}
             </Show>
 
             <Show when=move || editing_item.get().is_some() || creating_item.get() fallback=|| ()>
                 <div class="edit-form">
-                    <h3>{move || if creating_item.get() { "Create New Item" } else { "Edit Item" }}</h3>
+                    <h3>{move || if creating_item.get() { i18n.get().t("items.create_item") } else { i18n.get().t("items.edit_item") }}</h3>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label>"Name"</label>
+                            <label>{move || i18n.get().t("general.name")}</label>
                             <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
-                            <label>"Price"</label>
+                            <label>{move || i18n.get().t("items.price")}</label>
                             <input type="number" step="0.01" value=move || price.get() on:input=move |ev| set_price.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
-                            <label>"Category"</label>
+                            <label>{move || i18n.get().t("items.category")}</label>
                             <select prop:value=move || category_id.get() on:change=move |ev| set_category_id.set(event_target_value(&ev))>
                                 <For each=move || categories.get() key=|cat| cat.id let:cat>
                                     <option value={cat.id.to_string()}>{cat.name.clone()}</option>
@@ -250,57 +255,65 @@ pub fn ItemsPage() -> impl IntoView {
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>"SKU"</label>
+                            <label>{move || i18n.get().t("items.sku")}</label>
                             <input type="text" value=move || sku.get() on:input=move |ev| set_sku.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
-                            <label>"Description"</label>
+                            <label>{move || i18n.get().t("general.description")}</label>
                             <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" checked=move || in_stock.get() on:change=move |ev| set_in_stock.set(event_target_checked(&ev)) />
-                                " In Stock"
+                                " " {move || i18n.get().t("items.in_stock")}
                             </label>
                         </div>
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" checked=move || kitchen_item.get() on:change=move |ev| set_kitchen_item.set(event_target_checked(&ev)) />
-                                " Kitchen Item"
+                                " " {move || i18n.get().t("items.kitchen_item")}
                             </label>
                         </div>
                         <div class="form-group">
                             <label>
                                 <input type="checkbox" checked=move || track_stock.get() on:change=move |ev| set_track_stock.set(event_target_checked(&ev)) />
-                                " Track Stock Quantity"
+                                " " {move || i18n.get().t("items.track_stock")}
                             </label>
-                            <Show when=move || track_stock.get() fallback=|| view! { <span class="text-muted">"Endless (untracked)"</span> }>
-                                <input type="number" min="0" placeholder="Quantity"
+                            <Show when=move || track_stock.get() fallback=move || view! { <span class="text-muted">{i18n.get().t("items.endless")}</span> }>
+                                <input type="number" min="0" placeholder=move || i18n.get().t("items.quantity")
                                     value=move || stock_quantity.get()
                                     on:input=move |ev| set_stock_quantity.set(event_target_value(&ev))
                                 />
                             </Show>
                         </div>
                         <div class="form-group">
-                            <label>"Image"</label>
+                            <label>{move || i18n.get().t("items.image")}</label>
                             <input type="file" accept="image/*" on:change=on_image_selected />
                             <Show when=move || image_preview.get().is_some() fallback=|| ()>
                                 <div class="image-preview-container">
                                     <img class="image-preview" src=move || image_preview.get().unwrap_or_default() />
-                                    <button type="button" class="btn-small btn-danger" on:click=remove_image>"Remove"</button>
+                                    <button type="button" class="btn-small btn-danger" on:click=remove_image>{move || i18n.get().t("items.remove")}</button>
                                 </div>
                             </Show>
                         </div>
                     </div>
                     <div class="form-actions">
-                        <button class="btn-success" on:click=save_item>"Save"</button>
-                        <button class="btn-secondary" on:click=cancel_edit>"Cancel"</button>
+                        <button class="btn-success" on:click=save_item>{move || i18n.get().t("general.save")}</button>
+                        <button class="btn-secondary" on:click=cancel_edit>{move || i18n.get().t("general.cancel")}</button>
                     </div>
                 </div>
             </Show>
 
             <table class="data-table">
-                <thead><tr><th>"Image"</th><th>"Name"</th><th>"Price"</th><th>"Category"</th><th>"Stock"</th><th>"Kitchen"</th><th></th></tr></thead>
+                <thead><tr>
+                    <th>{move || i18n.get().t("items.image")}</th>
+                    <th>{move || i18n.get().t("general.name")}</th>
+                    <th>{move || i18n.get().t("items.price")}</th>
+                    <th>{move || i18n.get().t("items.category")}</th>
+                    <th>{move || i18n.get().t("items.stock")}</th>
+                    <th>{move || i18n.get().t("items.kitchen")}</th>
+                    <th></th>
+                </tr></thead>
                 <tbody>
                     <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone(), i.stock_quantity, i.kitchen_item) let:item>
                         {
@@ -310,10 +323,10 @@ pub fn ItemsPage() -> impl IntoView {
                             let category_name = categories.get().iter()
                                 .find(|c| c.id == item.category_id)
                                 .map(|c| c.name.clone())
-                                .unwrap_or_else(|| "Unknown".to_string());
+                                .unwrap_or_else(|| i18n.get().t("general.unknown"));
                             let stock_display = match item.stock_quantity {
                                 Some(q) => format!("{}", q),
-                                None => if item.in_stock { "Endless".to_string() } else { "Out".to_string() },
+                                None => if item.in_stock { i18n.get().t("items.endless_short") } else { i18n.get().t("items.out") },
                             };
                             view! {
                                 <tr>
@@ -324,14 +337,14 @@ pub fn ItemsPage() -> impl IntoView {
                                     <td>{format!("{} {:.2}", CURRENCY_SYMBOL, item.price)}</td>
                                     <td>{category_name}</td>
                                     <td>{stock_display}</td>
-                                    <td>{if item.kitchen_item { "Yes" } else { "-" }}</td>
+                                    <td>{if item.kitchen_item { i18n.get().t("general.yes") } else { "-".to_string() }}</td>
                                     <td class="data-table-actions">
                                         <button class="btn-small" on:click=move |_| start_edit(item_clone.clone())
                                             disabled=move || editing_item.get().is_some() || creating_item.get()
-                                        >"Edit"</button>
+                                        >{i18n.get().t("general.edit")}</button>
                                         <button class="btn-small btn-danger" on:click=move |_| confirm_delete(item_id, item_name.clone())
                                             disabled=move || editing_item.get().is_some() || creating_item.get()
-                                        >"Delete"</button>
+                                        >{i18n.get().t("general.delete")}</button>
                                     </td>
                                 </tr>
                             }

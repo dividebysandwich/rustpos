@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use leptos::prelude::*;
 
+use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
@@ -29,6 +30,8 @@ fn trigger_csv_download(csv: &str, filename: &str) {
 
 #[component]
 pub fn ReportsPage() -> impl IntoView {
+    let i18n = expect_context::<RwSignal<I18n>>();
+
     let (authorized, set_authorized) = signal(false);
     Effect::new(move || {
         leptos::task::spawn_local(async move {
@@ -93,37 +96,37 @@ pub fn ReportsPage() -> impl IntoView {
     Effect::new(move || { load_report("daily".to_string()); });
 
     view! {
-        <Show when=move || authorized.get() fallback=|| view! { <div class="loading">"Loading..."</div> }>
+        <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div class="reports-page">
-            <h2>"Sales Reports"</h2>
+            <h2>{move || i18n.get().t("reports.title")}</h2>
 
             <div class="report-controls">
                 <div class="report-type-selector">
                     <button
                         class=move || if report_type.get() == "daily" { "btn-primary" } else { "btn-secondary" }
                         on:click=move |_| { set_report_type.set("daily".to_string()); load_report("daily".to_string()); }
-                    >"Today"</button>
+                    >{move || i18n.get().t("reports.today")}</button>
                     <button
                         class=move || if report_type.get() == "monthly" { "btn-primary" } else { "btn-secondary" }
                         on:click=move |_| { set_report_type.set("monthly".to_string()); load_report("monthly".to_string()); }
-                    >"Last 30 Days"</button>
+                    >{move || i18n.get().t("reports.monthly")}</button>
                     <button
                         class=move || if report_type.get() == "custom" { "btn-primary" } else { "btn-secondary" }
                         on:click=move |_| set_report_type.set("custom".to_string())
-                    >"Custom Range"</button>
+                    >{move || i18n.get().t("reports.custom")}</button>
                 </div>
 
                 <Show when=move || report_type.get() == "custom" fallback=|| ()>
                     <div class="date-range-selector">
                         <div class="form-group">
-                            <label>"Start Date"</label>
+                            <label>{move || i18n.get().t("reports.start_date")}</label>
                             <input type="date" value=move || start_date.get() on:input=move |ev| set_start_date.set(event_target_value(&ev)) />
                         </div>
                         <div class="form-group">
-                            <label>"End Date"</label>
+                            <label>{move || i18n.get().t("reports.end_date")}</label>
                             <input type="date" value=move || end_date.get() on:input=move |ev| set_end_date.set(event_target_value(&ev)) />
                         </div>
-                        <button class="btn-primary" on:click=move |_| load_report("custom".to_string())>"Generate Report"</button>
+                        <button class="btn-primary" on:click=move |_| load_report("custom".to_string())>{move || i18n.get().t("reports.generate")}</button>
                     </div>
                 </Show>
             </div>
@@ -139,15 +142,15 @@ pub fn ReportsPage() -> impl IntoView {
                             }
                         });
                     }
-                }>"Export CSV"</button>
+                }>{move || i18n.get().t("reports.export_csv")}</button>
             </Show>
 
             <Show when=move || loading.get() fallback=|| ()>
-                <div class="loading">"Loading report..."</div>
+                <div class="loading">{move || i18n.get().t("reports.loading")}</div>
             </Show>
 
             <Show when=move || error.get().is_some() fallback=|| ()>
-                <div class="error-message">"Error: "{move || error.get().unwrap_or_default()}</div>
+                <div class="error-message">{move || i18n.get().t("reports.error")}{move || error.get().unwrap_or_default()}</div>
             </Show>
 
             <Show when=move || report.get().is_some() && !loading.get() fallback=|| ()>
@@ -156,29 +159,29 @@ pub fn ReportsPage() -> impl IntoView {
                         view! {
                             <div class="report-content">
                                 <div class="report-header">
-                                    <h3>"Report Period"</h3>
+                                    <h3>{i18n.get().t("reports.period")}</h3>
                                     <p>
                                         {report_data.start_date.format("%Y-%m-%d").to_string()}
-                                        " to "
+                                        {i18n.get().t("reports.to")}
                                         {report_data.end_date.format("%Y-%m-%d").to_string()}
                                     </p>
                                 </div>
 
                                 <div class="summary-cards">
-                                    <div class="summary-card"><h4>"Total Revenue"</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.total_revenue)}</div></div>
-                                    <div class="summary-card"><h4>"Items Sold"</h4><div class="summary-value">{report_data.summary.total_items_sold.to_string()}</div></div>
-                                    <div class="summary-card"><h4>"Transactions"</h4><div class="summary-value">{report_data.summary.total_transactions.to_string()}</div></div>
-                                    <div class="summary-card"><h4>"Avg Transaction"</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.average_transaction_value)}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.total_revenue")}</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.total_revenue)}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.items_sold")}</h4><div class="summary-value">{report_data.summary.total_items_sold.to_string()}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.transactions")}</h4><div class="summary-value">{report_data.summary.total_transactions.to_string()}</div></div>
+                                    <div class="summary-card"><h4>{i18n.get().t("reports.avg_transaction")}</h4><div class="summary-value">{format!("{} {:.2}", CURRENCY_SYMBOL, report_data.summary.average_transaction_value)}</div></div>
                                 </div>
 
                                 <div class="report-highlights">
-                                    {report_data.summary.top_selling_item.as_ref().map(|item| view! { <div class="highlight"><strong>"Top Selling Item: "</strong>{item.clone()}</div> })}
-                                    {report_data.summary.top_revenue_item.as_ref().map(|item| view! { <div class="highlight"><strong>"Top Revenue Item: "</strong>{item.clone()}</div> })}
+                                    {report_data.summary.top_selling_item.as_ref().map(|item| view! { <div class="highlight"><strong>{i18n.get().t("reports.top_selling")}</strong>{item.clone()}</div> })}
+                                    {report_data.summary.top_revenue_item.as_ref().map(|item| view! { <div class="highlight"><strong>{i18n.get().t("reports.top_revenue")}</strong>{item.clone()}</div> })}
                                 </div>
 
-                                <h3>"Sales by Item"</h3>
+                                <h3>{i18n.get().t("reports.sales_by_item")}</h3>
                                 {if report_data.items.is_empty() {
-                                    view! { <p>"No sales data for this period"</p> }.into_any()
+                                    view! { <p>{i18n.get().t("reports.no_data")}</p> }.into_any()
                                 } else {
                                     let items = report_data.items.clone();
                                     let total_items = report_data.summary.total_items_sold;
@@ -186,7 +189,7 @@ pub fn ReportsPage() -> impl IntoView {
                                     let total_transactions = report_data.summary.total_transactions;
                                     view! {
                                         <table class="data-table">
-                                            <thead><tr><th>"Item"</th><th>"Category"</th><th>"Quantity Sold"</th><th>"Revenue"</th><th>"Avg Price"</th><th>"Transactions"</th></tr></thead>
+                                            <thead><tr><th>{i18n.get().t("reports.item")}</th><th>{i18n.get().t("reports.category")}</th><th>{i18n.get().t("reports.quantity_sold")}</th><th>{i18n.get().t("reports.revenue")}</th><th>{i18n.get().t("reports.avg_price")}</th><th>{i18n.get().t("reports.transactions")}</th></tr></thead>
                                             <tbody>
                                                 <For each=move || items.clone() key=|item| item.item_id let:item>
                                                     <tr>
@@ -201,7 +204,7 @@ pub fn ReportsPage() -> impl IntoView {
                                             </tbody>
                                             <tfoot>
                                                 <tr class="table-footer">
-                                                    <td colspan="2"><strong>"Total"</strong></td>
+                                                    <td colspan="2"><strong>{i18n.get().t("reports.total")}</strong></td>
                                                     <td><strong>{total_items.to_string()}</strong></td>
                                                     <td><strong>{format!("{} {:.2}", CURRENCY_SYMBOL, total_revenue)}</strong></td>
                                                     <td>"-"</td>
