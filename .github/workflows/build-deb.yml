@@ -75,10 +75,20 @@ jobs:
 
       - name: Install system and cross-compilation dependencies
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list.d/*.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ $(lsb_release -cs) main restricted universe" | sudo tee /etc/apt/sources.list.d/arm64.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ $(lsb_release -cs)-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/arm64.list
+          FOREIGN_ARCH=arm64
+          CODENAME=$(lsb_release -cs)
+          sudo dpkg --add-architecture $FOREIGN_ARCH
+          # Replace all apt sources with explicit arch-pinned versions
+          sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+          sudo sh -c "cat > /etc/apt/sources.list.d/ubuntu.list" <<EOF
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $CODENAME main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $CODENAME-updates main restricted universe multiverse
+          deb [arch=amd64] http://security.ubuntu.com/ubuntu/ $CODENAME-security main restricted universe multiverse
+          deb [arch=$FOREIGN_ARCH] http://ports.ubuntu.com/ $CODENAME main restricted universe multiverse
+          deb [arch=$FOREIGN_ARCH] http://ports.ubuntu.com/ $CODENAME-updates main restricted universe multiverse
+          EOF
+          # Strip leading whitespace from heredoc
+          sudo sed -i 's/^[[:space:]]*//' /etc/apt/sources.list.d/ubuntu.list
           sudo apt-get update
           sudo apt-get install -y pkg-config libudev-dev gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libudev-dev:arm64
 
@@ -134,10 +144,18 @@ jobs:
 
       - name: Install system and cross-compilation dependencies
         run: |
-          sudo dpkg --add-architecture armhf
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list.d/*.list
-          echo "deb [arch=armhf] http://ports.ubuntu.com/ $(lsb_release -cs) main restricted universe" | sudo tee /etc/apt/sources.list.d/armhf.list
-          echo "deb [arch=armhf] http://ports.ubuntu.com/ $(lsb_release -cs)-updates main restricted universe" | sudo tee -a /etc/apt/sources.list.d/armhf.list
+          FOREIGN_ARCH=armhf
+          CODENAME=$(lsb_release -cs)
+          sudo dpkg --add-architecture $FOREIGN_ARCH
+          sudo rm -f /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources
+          sudo sh -c "cat > /etc/apt/sources.list.d/ubuntu.list" <<EOF
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $CODENAME main restricted universe multiverse
+          deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ $CODENAME-updates main restricted universe multiverse
+          deb [arch=amd64] http://security.ubuntu.com/ubuntu/ $CODENAME-security main restricted universe multiverse
+          deb [arch=$FOREIGN_ARCH] http://ports.ubuntu.com/ $CODENAME main restricted universe multiverse
+          deb [arch=$FOREIGN_ARCH] http://ports.ubuntu.com/ $CODENAME-updates main restricted universe multiverse
+          EOF
+          sudo sed -i 's/^[[:space:]]*//' /etc/apt/sources.list.d/ubuntu.list
           sudo apt-get update
           sudo apt-get install -y pkg-config libudev-dev gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf libudev-dev:armhf
 
