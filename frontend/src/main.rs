@@ -198,9 +198,11 @@ async fn main() {
     let routes = generate_route_list(App);
 
     let (kitchen_tx, _) = broadcast::channel::<()>(16);
+    let (printer_tx, _) = broadcast::channel::<rustpos_common::protocol::PrintReceiptJob>(16);
 
     let app = Router::new()
         .route("/ws/kitchen", axum::routing::get(kitchen_ws_handler))
+        .route("/ws/printer", axum::routing::get(printer_ws_handler))
         .nest_service("/item_images", tower_http::services::ServeDir::new("data/item_images"))
         .leptos_routes_with_context(
             &leptos_options,
@@ -208,9 +210,11 @@ async fn main() {
             {
                 let db = db.clone();
                 let kitchen_tx = kitchen_tx.clone();
+                let printer_tx = printer_tx.clone();
                 move || {
                     provide_context(db.clone());
                     provide_context(kitchen_tx.clone());
+                    provide_context(printer_tx.clone());
                 }
             },
             {
@@ -220,6 +224,8 @@ async fn main() {
         )
         .fallback(leptos_axum::file_and_error_handler(shell))
         .layer(axum::Extension(kitchen_tx))
+        .layer(axum::Extension(printer_tx))
+        .layer(axum::Extension(db.clone()))
         .with_state(leptos_options);
 
     let port = env::var("RUSTPOS_PORT")
@@ -264,6 +270,119 @@ async fn kitchen_ws_handler(
                 }
             }
         }
+    })
+}
+
+#[cfg(feature = "ssr")]
+async fn validate_printer_passphrase(db: &sqlx::SqlitePool, passphrase: &str) -> bool {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(passphrase.as_bytes());
+    let hash = format!("{:x}", hasher.finalize());
+
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_passphrase'")
+            .fetch_optional(db)
+            .await
+            .unwrap_or(None);
+
+    stored.is_some_and(|s| s == hash)
+}
+
+#[cfg(feature = "ssr")]
+async fn printer_ws_handler(
+    wsu: axum::extract::ws::WebSocketUpgrade,
+    axum::Extension(tx): axum::Extension<
+        tokio::sync::broadcast::Sender<rustpos_common::protocol::PrintReceiptJob>,
+    >,
+    axum::Extension(db): axum::Extension<sqlx::sqlite::SqlitePool>,
+) -> impl axum::response::IntoResponse {
+    use axum::extract::ws::Message;
+    use rustpos_common::protocol::*;
+
+    wsu.on_upgrade(move |mut socket| async move {
+        // Phase 1: Authentication (10 second timeout)
+        let auth_timeout = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            socket.recv(),
+        )
+        .await;
+
+        let authenticated = match auth_timeout {
+            Ok(Some(Ok(Message::Text(text)))) => {
+                match serde_json::from_str::<ClientMessage>(&text) {
+                    Ok(ClientMessage::Auth { passphrase }) => {
+                        validate_printer_passphrase(&db, &passphrase).await
+                    }
+                    _ => false,
+                }
+            }
+            _ => false,
+        };
+
+        if !authenticated {
+            let msg = serde_json::to_string(&ServerMessage::AuthFail {
+                reason: "Invalid passphrase".into(),
+            })
+            .unwrap();
+            let _ = socket.send(Message::Text(msg.into())).await;
+            return;
+        }
+
+        let ok = serde_json::to_string(&ServerMessage::AuthOk).unwrap();
+        if socket.send(Message::Text(ok.into())).await.is_err() {
+            return;
+        }
+
+        // Send receipt logo to client
+        let logo_data = std::fs::read("data/logo_receipt.png")
+            .ok()
+            .map(|bytes| base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &bytes));
+        let logo_msg = serde_json::to_string(&ServerMessage::Logo { data: logo_data }).unwrap();
+        if socket.send(Message::Text(logo_msg.into())).await.is_err() {
+            return;
+        }
+
+        println!("Remote printer client connected and authenticated");
+
+        // Phase 2: Print job relay loop
+        let mut rx = tx.subscribe();
+        loop {
+            tokio::select! {
+                result = rx.recv() => {
+                    match result {
+                        Ok(job) => {
+                            let msg = serde_json::to_string(
+                                &ServerMessage::PrintReceipt(job)
+                            ).unwrap();
+                            if socket.send(Message::Text(msg.into())).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                msg = socket.recv() => {
+                    match msg {
+                        Some(Ok(Message::Text(text))) => {
+                            if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
+                                match client_msg {
+                                    ClientMessage::PrintOk => {}
+                                    ClientMessage::PrintError { message } => {
+                                        eprintln!("Remote printer error: {}", message);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                        Some(Ok(_)) => {}
+                        _ => break,
+                    }
+                }
+            }
+        }
+
+        println!("Remote printer client disconnected");
     })
 }
 

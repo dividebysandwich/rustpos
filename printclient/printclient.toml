@@ -1,0 +1,13 @@
+# RustPOS Remote Print Client Configuration
+
+# Server URL (WebSocket base URL, without /ws/printer path)
+server_url = "ws://192.168.1.10:3000"
+
+# Passphrase configured by admin in RustPOS settings
+passphrase = "my-secret-printer-passphrase"
+
+# Optional: override the logo downloaded from the server with a local file
+# logo_path = "/path/to/custom_logo.png"
+
+# Optional: seconds to wait before reconnecting after disconnect (default: 5)
+# reconnect_delay_secs = 5

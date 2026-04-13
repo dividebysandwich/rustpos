@@ -831,6 +831,21 @@ pub async fn close_transaction(
             .collect();
 
         let local_now = chrono::Local::now();
+
+        // Send to remote printer clients via WebSocket
+        if let Some(printer_tx) = use_context::<tokio::sync::broadcast::Sender<
+            rustpos_common::protocol::PrintReceiptJob,
+        >>() {
+            let job = rustpos_common::protocol::PrintReceiptJob {
+                items: receipt_items.clone(),
+                paid_amount: paid_amount as f32,
+                change: change as f32,
+                datetime: local_now.format("%Y-%m-%d %H:%M:%S").to_string(),
+            };
+            let _ = printer_tx.send(job);
+        }
+
+        // Local print
         let _ = tokio::task::spawn_blocking(move || {
             if let Ok((_, mut printer)) = find_printer() {
                 let _ = print_receipt(
@@ -839,6 +854,7 @@ pub async fn close_transaction(
                     paid_amount as f32,
                     change as f32,
                     local_now,
+                    Some("data/logo_receipt.png"),
                 );
             }
         })
@@ -1475,5 +1491,46 @@ pub async fn set_currency_admin(currency: String) -> Result<(), ServerFnError> {
     .execute(&pool)
     .await
     .map_err(db_err)?;
+    Ok(())
+}
+
+#[server]
+pub async fn get_printer_passphrase_set() -> Result<bool, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let exists: Option<String> =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_passphrase'")
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?;
+    Ok(exists.is_some())
+}
+
+#[server]
+pub async fn set_printer_passphrase(passphrase: String) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    if passphrase.len() < 8 {
+        return Err(not_found("Passphrase must be at least 8 characters"));
+    }
+    let hash = hash_pin(&passphrase);
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('printer_passphrase', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(&hash)
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+#[server]
+pub async fn clear_printer_passphrase() -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    sqlx::query("DELETE FROM config WHERE key = 'printer_passphrase'")
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
     Ok(())
 }

@@ -63,15 +63,19 @@ pub fn print_receipt(
     paid_amount: f32,
     change: f32,
     datetime: DateTime<Local>,
+    logo_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
-    printer.graphic(move |builder| {
-        builder
-            .path("data/logo_receipt.png")
-            .size(GraphicSize::Normal)
-    })?;
+    if let Some(logo) = logo_path {
+        let logo_owned = logo.to_string();
+        printer.graphic(move |builder| {
+            builder
+                .path(&logo_owned)
+                .size(GraphicSize::Normal)
+        })?;
+    }
     printer.text("------------------------------------------------\n")?;
 
     printer.align(Alignment::Left)?;

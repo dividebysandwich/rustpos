@@ -1,5 +1,5 @@
 [workspace]
-members = ["frontend"]
+members = ["frontend", "common", "printclient"]
 resolver = "2"
 
 [[workspace.metadata.leptos]]

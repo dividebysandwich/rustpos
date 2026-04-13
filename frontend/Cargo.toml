@@ -1,6 +1,6 @@
 [package]
 name = "rustpos"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 
 [lib]
@@ -25,9 +25,8 @@ tower-http = { version = "0.6.8", features = ["fs"], optional = true }
 thiserror = { version = "2.0.18", optional = true }
 tracing = { version = "0.1.44", optional = true }
 tracing-subscriber = { version = "0.3.23", optional = true }
-glob = { version = "0.3.3", optional = true }
-recibo = { version = "0.3.0", features = ["graphics"], optional = true }
-serialport = { version = "4.9.0", optional = true }
+rustpos-common = { path = "../common", optional = true }
+base64 = { version = "0.22", optional = true }
 rand = { version = "0.8", optional = true }
 sha2 = { version = "0.10", optional = true }
 
@@ -64,9 +63,8 @@ ssr = [
     "dep:thiserror",
     "dep:tracing",
     "dep:tracing-subscriber",
-    "dep:glob",
-    "dep:recibo",
-    "dep:serialport",
+    "dep:rustpos-common",
+    "dep:base64",
     "dep:rand",
     "dep:sha2",
     "uuid/v4",

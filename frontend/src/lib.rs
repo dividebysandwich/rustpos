@@ -7,7 +7,7 @@ pub mod pages;
 pub mod server_fns;
 
 #[cfg(feature = "ssr")]
-pub mod printer;
+pub use rustpos_common::printer;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

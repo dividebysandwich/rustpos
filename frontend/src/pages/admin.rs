@@ -497,6 +497,9 @@ pub fn AdminPage() -> impl IntoView {
         // Currency setting section
         <CurrencySettings i18n=i18n />
 
+        // Remote printer passphrase setting
+        <PrinterPassphraseSettings i18n=i18n />
+
         </Show>
     }
 }
@@ -555,6 +558,100 @@ fn CurrencySettings(i18n: RwSignal<I18n>) -> impl IntoView {
                     </button>
                 </div>
             </div>
+        </div>
+    }
+}
+
+#[component]
+fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
+    let (passphrase_set, set_passphrase_set) = signal(false);
+    let (input_value, set_input_value) = signal(String::new());
+    let (status_msg, set_status_msg) = signal(Option::<String>::None);
+
+    // Check if passphrase is currently configured
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(is_set) = get_printer_passphrase_set().await {
+                set_passphrase_set.set(is_set);
+            }
+        });
+    });
+
+    let submit_passphrase = move |_| {
+        let val = input_value.get().trim().to_string();
+        if val.len() < 8 {
+            set_status_msg.set(Some(i18n.get().t("admin.printer_passphrase_too_short")));
+            return;
+        }
+        leptos::task::spawn_local(async move {
+            match set_printer_passphrase(val).await {
+                Ok(()) => {
+                    set_passphrase_set.set(true);
+                    set_input_value.set(String::new());
+                    set_status_msg.set(Some(i18n.get().t("admin.printer_passphrase_updated")));
+                }
+                Err(e) => {
+                    set_status_msg.set(Some(format!("{}", e)));
+                }
+            }
+        });
+    };
+
+    let clear_passphrase = move |_| {
+        leptos::task::spawn_local(async move {
+            match clear_printer_passphrase().await {
+                Ok(()) => {
+                    set_passphrase_set.set(false);
+                    set_status_msg.set(Some(i18n.get().t("admin.printer_passphrase_cleared")));
+                }
+                Err(e) => {
+                    set_status_msg.set(Some(format!("{}", e)));
+                }
+            }
+        });
+    };
+
+    view! {
+        <div class="admin-page" style="margin-top: 2rem;">
+            <h2>{move || i18n.get().t("admin.printer_settings")}</h2>
+            <p>
+                {move || if passphrase_set.get() {
+                    i18n.get().t("admin.printer_passphrase_set")
+                } else {
+                    i18n.get().t("admin.printer_passphrase_not_set")
+                }}
+            </p>
+
+            <div class="currency-custom">
+                <label>{move || i18n.get().t("admin.printer_passphrase")}</label>
+                <div class="currency-custom-row">
+                    <input
+                        type="password"
+                        placeholder=move || i18n.get().t("admin.printer_passphrase_hint")
+                        on:input=move |ev| set_input_value.set(event_target_value(&ev))
+                        prop:value=move || input_value.get()
+                    />
+                    <button class="btn-primary" on:click=submit_passphrase>
+                        {move || i18n.get().t("admin.printer_set_passphrase")}
+                    </button>
+                </div>
+            </div>
+
+            <Show when=move || passphrase_set.get() fallback=|| ()>
+                <button
+                    class="btn-primary"
+                    style="margin-top: 0.5rem; background: #c0392b;"
+                    on:click=clear_passphrase
+                >
+                    {move || i18n.get().t("admin.printer_clear_passphrase")}
+                </button>
+            </Show>
+
+            <Show when=move || status_msg.get().is_some() fallback=|| ()>
+                <p style="margin-top: 0.5rem; color: #27ae60; font-weight: bold;">
+                    {move || status_msg.get().unwrap_or_default()}
+                </p>
+            </Show>
         </div>
     }
 }
