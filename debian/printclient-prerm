@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+# Stop service before removal
+if systemctl is-active --quiet rustpos-printclient.service; then
+    systemctl stop rustpos-printclient.service || true
+fi
+
+# Disable service on full removal (not upgrade)
+if [ "$1" = "remove" ]; then
+    systemctl disable rustpos-printclient.service || true
+fi

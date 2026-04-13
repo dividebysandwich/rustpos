@@ -2,7 +2,8 @@
 
 <hr>
 
-RustPOS is a simple Point of Sale system written in Rust. It is very easy to get going, does not require any additional setup and consists of a REST API backend and a web frontend using webassembly. 
+RustPOS is a simple web-based Point of Sale system written in Rust. It is very easy to get going, does not require any additional setup and consists of a single executable for everything, with an additional optional print client available should you want to run the main program on a separate dedicated machine.
+
 This is a simple implementation using modern technologies. It was born out of my frustration with free and open source POS software often being very brittle and relying on heavyweight technology stacks.
 
 > [!NOTE]
@@ -19,7 +20,8 @@ This is a simple implementation using modern technologies. It was born out of my
 * Change calculation
 * Quick cash function
 * Sales report generation: day, month, and custom date range reports with CSV export
-* POS printer support
+* POS printer support (built into main application)
+* Optional remote printer client (for dedicated server/cloud setups)
 * Kitchen display
 * User accounts and user roles (admin, cashier, cook)
 * Simple inventory tracking
@@ -45,14 +47,57 @@ On the POS, there's a Kitchen tab that lets the cashier check the live status of
 
 <img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
 
+## Installation
 
-## Feature wishlist
+RustPOS is provided in various installable packages. Simply install the applicable one. System services are provided for starting/stopping the program: ```sudo systemctl start rustpos``` starts the main program. The optional remote printer client can be started with ```sudo systemctl start rustpos-printclient```
 
-* User roles: Admin, Sales, Reporting
+To start the programs on system boot, enable the services as follows:
 
-## Setup
+```sudo systemctl enable rustpos```
+or
+```sudo systemctl enable rustpos-printclient```
 
-### Install prerequisites
+## Receipt Printer Support
+
+RustPOS will enumerate all receipt printers connected via serial port or USB, and use the first one it finds. Obviously this won't work for all setups, but for this proof of concept it should suffice.
+The printout is designed for 80mm receipt printers and have been tested using a Munbyn ITPP098 connected via USB.
+
+<img width="713" height="867" alt="image" src="https://github.com/user-attachments/assets/9334a0c5-aefa-4bfa-b5c0-d5df42c33415" />
+
+## Remote Printer Support
+
+It may be necessary to run RustPOS on a dedicated machine or even in the cloud. In these cases, connecting a printer to the server may not be possible, and the printing should happen at the point of sale. For this reason there is a seperate print client available. This print client will connect to the main RustPOS installation via websocket, authenticate, download the receipt log from the server, and then wait for print jobs.
+
+> [!NOTE]
+> You do not need to install the print client if you run RustPOS itself on your POS. It will detect locally connected printers and use them directly.
+
+The print client will install in ```/opt/rustpos-printclient``` and the configuration file is ```/opt/rustpos-printclient/printclient.toml```
+
+First, on the main RustPOS administration page, configure a *Printer Passphrase*. Then edit ```/opt/rustpos-printclient/printclient.toml``` on the machine the printer is connected to, and insert the passphrase as well as the address of the main RustPOS installation.
+
+> [!NOTE]
+> If your main RustPOS installation is available via HTTPS, the ```server_url``` should start with "wss", like in this example:
+>
+>```server_url = "wss://myserver.example.com"```
+
+
+## Customization
+
+### Logo image
+
+It is possible to change the logo used on the web UI. After installing the .deb package, the logo is at ```/opt/rustpos/site/logo_site.png```
+
+### Receipt image
+
+The receipt image is at ```/opt/rustpos/data/logo_receipt.png``` and can be replaced with your own B/W image.
+
+## Data location
+
+Item images and the entire POS database is stored in the ```data``` directory. If you installed via .deb package, the location will be ```/opt/rustpos/data```
+
+## Manual Compilation
+
+### Prerequisites
 ```
 # Install Trunk (build tool for Rust WASM apps)
 cargo install trunk
@@ -61,10 +106,7 @@ cargo install trunk
 rustup target add wasm32-unknown-unknown
 ```
 
-
-### Production Deployment
-
-NOTE: This is a proof of concept and not ready for production use.
+### Compiling
 
 The build script ```build.sh``` will build the application and copy all the neccessary files into the "rustpos" subdirectory. 
 You can copy that directory anywhere you want for a more permanent installation.
@@ -77,20 +119,3 @@ You can copy that directory anywhere you want for a more permanent installation.
 cd rustpos
 ./rustpos
 ```
-
-### Receipt Printer Support
-
-RustPOS will enumerate all receipt printers connected via serial port or USB, and use the first one it finds. Obviously this won't work for all setups, but for this proof of concept it should suffice.
-The printout is designed for 80mm receipt printers and have been tested using a Munbyn ITPP098 connected via USB.
-
-<img width="713" height="867" alt="image" src="https://github.com/user-attachments/assets/9334a0c5-aefa-4bfa-b5c0-d5df42c33415" />
-
-
-### Customization
-
-It is possible to change the logo used on the web UI as well as on the receipt printouts. The images can be found in ```frontend/assets/```
-
-# Persistence
-
-The data is stored in a sqlite database under "data/"
-

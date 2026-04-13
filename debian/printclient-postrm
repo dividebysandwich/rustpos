@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+systemctl daemon-reload
+
+# Only remove user and data on purge
+if [ "$1" = "purge" ]; then
+    # Remove install directory
+    rm -rf /opt/rustpos-printclient
+
+    # Remove user
+    if id "rustpos-printclient" &>/dev/null; then
+        userdel rustpos-printclient 2>/dev/null || true
+    fi
+fi

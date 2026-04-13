@@ -1,0 +1,36 @@
+#!/bin/bash
+set -e
+
+PRINTCLIENT_USER="rustpos-printclient"
+PRINTCLIENT_HOME="/opt/rustpos-printclient"
+
+# Create system user if it doesn't exist
+if ! id "$PRINTCLIENT_USER" &>/dev/null; then
+    useradd --system --home-dir "$PRINTCLIENT_HOME" --shell /usr/sbin/nologin \
+        --comment "RustPOS Print Client service account" "$PRINTCLIENT_USER"
+fi
+
+# Add user to dialout group for serial/USB printer access
+usermod -aG dialout "$PRINTCLIENT_USER" 2>/dev/null || true
+
+# Set ownership
+chown -R "$PRINTCLIENT_USER":"$PRINTCLIENT_USER" "$PRINTCLIENT_HOME"
+
+# Create config from example if it doesn't exist yet
+if [ ! -f "$PRINTCLIENT_HOME/printclient.toml" ]; then
+    cp "$PRINTCLIENT_HOME/printclient.toml.example" "$PRINTCLIENT_HOME/printclient.toml"
+    chown "$PRINTCLIENT_USER":"$PRINTCLIENT_USER" "$PRINTCLIENT_HOME/printclient.toml"
+    echo ""
+    echo "NOTE: Edit /opt/rustpos-printclient/printclient.toml to configure"
+    echo "      the server URL and passphrase before starting the service."
+fi
+
+# Reload systemd and enable service
+systemctl daemon-reload
+systemctl enable rustpos-printclient.service
+
+echo ""
+echo "RustPOS Print Client has been installed successfully!"
+echo "  Config:  $PRINTCLIENT_HOME/printclient.toml"
+echo "  Service: systemctl status rustpos-printclient"
+echo ""

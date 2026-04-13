@@ -9,35 +9,32 @@ WORKDIR /app
 
 # Copy workspace and project files
 COPY Cargo.toml ./
+COPY common/Cargo.toml common/
+COPY common/src common/src
 COPY frontend/Cargo.toml frontend/
 COPY frontend/style frontend/style
 COPY frontend/assets frontend/assets
-
-# Build dependencies first (for better caching)
-RUN mkdir -p frontend/src && echo "pub mod app; #[cfg(feature=\"ssr\")] pub mod printer;" > frontend/src/lib.rs
-RUN echo "pub fn App() -> impl leptos::IntoView {}" > frontend/src/app.rs
-RUN echo "" > frontend/src/printer.rs
-RUN echo "#[cfg(feature=\"ssr\")] fn main() {} #[cfg(not(feature=\"ssr\"))] fn main() {}" > frontend/src/main.rs
-RUN cd frontend && cargo leptos build --release 2>/dev/null || true
+COPY frontend/locales frontend/locales
 
 # Copy actual source code
 COPY frontend/src frontend/src
 
 # Build the actual application
-RUN cd frontend && cargo leptos build --release
+RUN cargo leptos build --release
 
 # Runtime stage
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    libudev1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy the built binary and site files
-COPY --from=builder /app/target/server/release/rustpos /app/rustpos
-COPY --from=builder /app/frontend/site /app/site
+COPY --from=builder /app/target/release/rustpos /app/rustpos
+COPY --from=builder /app/site /app/site
 
 # Copy data assets
 RUN mkdir -p /app/data

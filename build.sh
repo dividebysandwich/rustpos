@@ -20,6 +20,7 @@ mkdir -p rustpos/data
 cp target/release/rustpos rustpos/rustpos
 cp target/release/rustpos-printclient rustpos/rustpos-printclient
 cp printclient/printclient.toml rustpos/printclient.toml.example
+cp frontend/assets/logo_receipt.png rustpos/data/logo_receipt.png
 cp -r site rustpos/site
 
 echo -e "${GREEN}Build complete!${NC}"

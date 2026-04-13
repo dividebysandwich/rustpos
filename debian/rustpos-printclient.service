@@ -4,6 +4,8 @@ After=network.target
 
 [Service]
 Type=simple
+User=rustpos-printclient
+Group=rustpos-printclient
 WorkingDirectory=/opt/rustpos-printclient
 ExecStart=/opt/rustpos-printclient/rustpos-printclient /opt/rustpos-printclient/printclient.toml
 Restart=on-failure

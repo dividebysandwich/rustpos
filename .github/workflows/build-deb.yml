@@ -43,14 +43,21 @@ jobs:
       - name: Build release
         run: cargo leptos build --release
 
-      - name: Build .deb package
-        run: bash debian/build-deb.sh amd64
+      - name: Build print client
+        run: cargo build --release -p rustpos-printclient
 
-      - name: Upload .deb artifact
+      - name: Build .deb packages
+        run: |
+          bash debian/build-deb.sh amd64
+          bash debian/build-printclient-deb.sh amd64
+
+      - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rustpos-amd64-deb
-          path: rustpos_*_amd64.deb
+          path: |
+            rustpos_*_amd64.deb
+            rustpos-printclient_*_amd64.deb
 
   build-arm64:
     name: Build arm64 .deb (Raspberry Pi 3/4/5 64-bit)
@@ -112,14 +119,29 @@ jobs:
             --target aarch64-unknown-linux-gnu \
             --no-default-features --features ssr
 
-      - name: Build .deb package
-        run: bash debian/build-deb.sh arm64
+      - name: Cross-compile print client for aarch64
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CXX_aarch64_unknown_linux_gnu: aarch64-linux-gnu-g++
+          PKG_CONFIG_SYSROOT_DIR: /usr/aarch64-linux-gnu
+          PKG_CONFIG_PATH: /usr/lib/aarch64-linux-gnu/pkgconfig
+        run: |
+          cargo build --release --package rustpos-printclient \
+            --target aarch64-unknown-linux-gnu
 
-      - name: Upload .deb artifact
+      - name: Build .deb packages
+        run: |
+          bash debian/build-deb.sh arm64
+          bash debian/build-printclient-deb.sh arm64
+
+      - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rustpos-arm64-deb
-          path: rustpos_*_arm64.deb
+          path: |
+            rustpos_*_arm64.deb
+            rustpos-printclient_*_arm64.deb
 
   build-armhf:
     name: Build armhf .deb (Raspberry Pi 32-bit)
@@ -179,14 +201,29 @@ jobs:
             --target armv7-unknown-linux-gnueabihf \
             --no-default-features --features ssr
 
-      - name: Build .deb package
-        run: bash debian/build-deb.sh armhf
+      - name: Cross-compile print client for armv7
+        env:
+          CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+          CC_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-gcc
+          CXX_armv7_unknown_linux_gnueabihf: arm-linux-gnueabihf-g++
+          PKG_CONFIG_SYSROOT_DIR: /usr/arm-linux-gnueabihf
+          PKG_CONFIG_PATH: /usr/lib/arm-linux-gnueabihf/pkgconfig
+        run: |
+          cargo build --release --package rustpos-printclient \
+            --target armv7-unknown-linux-gnueabihf
 
-      - name: Upload .deb artifact
+      - name: Build .deb packages
+        run: |
+          bash debian/build-deb.sh armhf
+          bash debian/build-printclient-deb.sh armhf
+
+      - name: Upload .deb artifacts
         uses: actions/upload-artifact@v4
         with:
           name: rustpos-armhf-deb
-          path: rustpos_*_armhf.deb
+          path: |
+            rustpos_*_armhf.deb
+            rustpos-printclient_*_armhf.deb
 
   release:
     name: Create release with .deb packages
