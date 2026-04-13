@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product
+        Id="*"
+        Name="RustPOS Print Client"
+        Version="!(bind.fileVersion.PrintClientExe)"
+        Manufacturer="RustPOS Contributors"
+        Language="1033"
+        UpgradeCode="{F9B4C6D2-5E3A-4B7F-C9D0-2E4F6A8B0C1D}">
+
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"
+                 Description="RustPOS Remote Print Client"
+                 Comments="Remote receipt printing client for RustPOS" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of RustPOS Print Client is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Icon Id="PrintClientIcon" SourceFile="$(var.BinDir)\rustpos-printclient.exe" />
+        <Property Id="ARPPRODUCTICON" Value="PrintClientIcon" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/dividebysandwich/rustpos" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="RustPOS Print Client" />
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="INSTALLFOLDER">
+            <Component Id="PrintClientExecutable" Guid="{D4E5F6A7-4567-89AB-CDEF-012345678901}" Win64="yes">
+                <File Id="PrintClientExe" Source="$(var.BinDir)\rustpos-printclient.exe" KeyPath="yes" />
+            </Component>
+            <Component Id="ExampleConfig" Guid="{E5F6A7B8-5678-9ABC-DEF0-123456789012}" Win64="yes">
+                <File Id="ConfigExample" Source="$(var.SrcDir)\printclient\printclient.toml" Name="printclient.toml.example" KeyPath="yes" />
+            </Component>
+            <Component Id="DefaultConfig" Guid="{F6A7B8C9-6789-ABCD-EF01-234567890123}" Win64="yes">
+                <File Id="ConfigDefault" Source="$(var.SrcDir)\printclient\printclient.toml" Name="printclient.toml" KeyPath="yes" />
+                <Condition>NOT Installed</Condition>
+            </Component>
+        </DirectoryRef>
+
+        <Feature Id="Complete" Title="RustPOS Print Client" Level="1">
+            <ComponentRef Id="PrintClientExecutable" />
+            <ComponentRef Id="ExampleConfig" />
+            <ComponentRef Id="DefaultConfig" />
+        </Feature>
+    </Product>
+</Wix>

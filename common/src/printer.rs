@@ -10,21 +10,40 @@ fn try_printer_on_port(path: &str) -> Result<Printer, Box<dyn std::error::Error>
 }
 
 pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
-    let candidates = vec![
-        "/dev/ttyUSB*",
-        "/dev/ttyACM*",
-        "/dev/usb/lp*",
-        "/dev/serial/by-id/*",
-    ];
+    // Try Linux-style device paths first
+    #[cfg(not(target_os = "windows"))]
+    {
+        let candidates = vec![
+            "/dev/ttyUSB*",
+            "/dev/ttyACM*",
+            "/dev/usb/lp*",
+            "/dev/serial/by-id/*",
+        ];
 
-    for pattern in candidates {
-        for entry in glob(pattern)? {
-            if let Ok(path) = entry {
-                let path_str = path.display().to_string();
-                println!("Trying on port: {}", path_str);
-                if let Ok(printer) = try_printer_on_port(&path_str) {
-                    return Ok((path_str, printer));
+        for pattern in candidates {
+            for entry in glob(pattern)? {
+                if let Ok(path) = entry {
+                    let path_str = path.display().to_string();
+                    println!("Trying on port: {}", path_str);
+                    if let Ok(printer) = try_printer_on_port(&path_str) {
+                        return Ok((path_str, printer));
+                    }
                 }
+            }
+        }
+    }
+
+    // Try serial port enumeration (primary method on Windows, fallback on Linux)
+    if let Ok(ports) = serialport::available_ports() {
+        for port in ports {
+            let path = if cfg!(windows) {
+                format!("\\\\.\\{}", port.port_name)
+            } else {
+                port.port_name.clone()
+            };
+            println!("Trying on port: {}", port.port_name);
+            if let Ok(printer) = try_printer_on_port(&path) {
+                return Ok((port.port_name, printer));
             }
         }
     }

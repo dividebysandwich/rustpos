@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product
+        Id="*"
+        Name="RustPOS"
+        Version="!(bind.fileVersion.RustPOSExe)"
+        Manufacturer="RustPOS Contributors"
+        Language="1033"
+        UpgradeCode="{E8A3B5C1-4D2F-4A6E-B8C9-1D3E5F7A9B0C}">
+
+        <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"
+                 Description="RustPOS Point of Sale System"
+                 Comments="A modern, touch-friendly point of sale system" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of RustPOS is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Icon Id="RustPOSIcon" SourceFile="$(var.BinDir)\rustpos.exe" />
+        <Property Id="ARPPRODUCTICON" Value="RustPOSIcon" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/dividebysandwich/rustpos" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="RustPOS">
+                    <Directory Id="DataFolder" Name="data" />
+                </Directory>
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="RustPOS" />
+            </Directory>
+        </Directory>
+
+        <DirectoryRef Id="INSTALLFOLDER">
+            <Component Id="MainExecutable" Guid="{A1B2C3D4-1234-5678-9ABC-DEF012345678}" Win64="yes">
+                <File Id="RustPOSExe" Source="$(var.BinDir)\rustpos.exe" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="DataFolder">
+            <Component Id="LogoFile" Guid="{B2C3D4E5-2345-6789-ABCD-EF0123456789}" Win64="yes">
+                <File Id="LogoReceipt" Source="$(var.AssetsDir)\logo_receipt.png" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="StartMenuShortcut" Guid="{C3D4E5F6-3456-789A-BCDE-F01234567890}" Win64="yes">
+                <Shortcut Id="RustPOSShortcut"
+                          Name="RustPOS"
+                          Description="RustPOS Point of Sale System"
+                          Target="[INSTALLFOLDER]rustpos.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="RustPOSIcon" />
+                <RemoveFolder Id="CleanUpShortcutFolder" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\RustPOS" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <Feature Id="Complete" Title="RustPOS" Level="1">
+            <ComponentRef Id="MainExecutable" />
+            <ComponentRef Id="LogoFile" />
+            <ComponentRef Id="StartMenuShortcut" />
+            <ComponentGroupRef Id="SiteFiles" />
+        </Feature>
+    </Product>
+</Wix>

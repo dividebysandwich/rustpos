@@ -1,4 +1,4 @@
-name: Build .deb packages
+name: Build packages
 
 on:
   push:
@@ -225,9 +225,70 @@ jobs:
             rustpos_*_armhf.deb
             rustpos-printclient_*_armhf.deb
 
+  build-windows:
+    name: Build Windows MSI
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: windows-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: windows-cargo-
+
+      - name: Install cargo-leptos
+        run: |
+          cargo install cargo-leptos --locked || cargo install cargo-leptos
+
+      - name: Build server with cargo-leptos
+        run: cargo leptos build --release
+
+      - name: Build print client
+        run: cargo build --release -p rustpos-printclient
+
+      - name: Add WiX Toolset to PATH
+        shell: pwsh
+        run: |
+          $wixDir = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -Directory | Select-Object -First 1
+          if ($wixDir) {
+            "$($wixDir.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+            Write-Host "Found WiX at $($wixDir.FullName)"
+          } else {
+            Write-Host "WiX not found, installing via chocolatey..."
+            choco install wixtoolset -y --no-progress
+            $wixDir = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*" -Directory | Select-Object -First 1
+            "$($wixDir.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          }
+
+      - name: Build server MSI
+        shell: pwsh
+        run: .\wix\build-msi.ps1 -Target rustpos
+
+      - name: Build print client MSI
+        shell: pwsh
+        run: .\wix\build-msi.ps1 -Target printclient
+
+      - name: Upload MSI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustpos-windows-msi
+          path: |
+            rustpos-*-win64.msi
+            rustpos-printclient-*-win64.msi
+
   release:
-    name: Create release with .deb packages
-    needs: [build-amd64, build-arm64, build-armhf]
+    name: Create release with packages
+    needs: [build-amd64, build-arm64, build-armhf, build-windows]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
@@ -239,10 +300,12 @@ jobs:
           merge-multiple: true
 
       - name: List packages
-        run: ls -lh *.deb
+        run: ls -lh *.deb *.msi 2>/dev/null || true
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: "*.deb"
+          files: |
+            *.deb
+            *.msi
           generate_release_notes: true
