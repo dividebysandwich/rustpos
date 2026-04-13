@@ -21,6 +21,12 @@ impl I18n {
             "pl" => include_str!("../locales/pl.json"),
             "ro" => include_str!("../locales/ro.json"),
             "uk" => include_str!("../locales/uk.json"),
+            "sw" => include_str!("../locales/sw.json"),
+            "am" => include_str!("../locales/am.json"),
+            "ha" => include_str!("../locales/ha.json"),
+            "yo" => include_str!("../locales/yo.json"),
+            "af" => include_str!("../locales/af.json"),
+            "ar" => include_str!("../locales/ar.json"),
             _ => include_str!("../locales/en.json"),
         };
         let translations: HashMap<String, String> =
@@ -54,6 +60,19 @@ pub fn available_currencies() -> Vec<(&'static str, &'static str)> {
         ("lei", "RON lei"),             // Romanian Leu
         ("\u{20b4}", "UAH \u{20b4}"),  // Ukrainian Hryvnia
         ("CHF", "CHF"),                 // Swiss Franc
+        // South American
+        ("AR$", "ARS AR$"),             // Argentine Peso
+        ("CL$", "CLP CL$"),            // Chilean Peso
+        ("CO$", "COP CO$"),            // Colombian Peso
+        ("S/", "PEN S/"),              // Peruvian Sol
+        // African
+        ("KSh", "KES KSh"),            // Kenyan Shilling
+        ("\u{20a6}", "NGN \u{20a6}"),  // Nigerian Naira
+        ("R", "ZAR R"),                 // South African Rand
+        ("Br", "ETB Br"),              // Ethiopian Birr
+        ("GH\u{20b5}", "GHS GH\u{20b5}"), // Ghanaian Cedi
+        ("CFA", "XOF CFA"),            // West African CFA Franc
+        ("E\u{00a3}", "EGP E\u{00a3}"), // Egyptian Pound
     ]
 }
 
@@ -72,6 +91,12 @@ pub fn default_currency_for_language(lang: &str) -> &'static str {
         "pl" => "z\u{142}",
         "ro" => "lei",
         "uk" => "\u{20b4}",
+        "sw" => "KSh",
+        "am" => "Br",
+        "ha" => "\u{20a6}",
+        "yo" => "\u{20a6}",
+        "af" => "R",
+        "ar" => "E\u{00a3}",
         _ => "\u{20ac}",
     }
 }
@@ -90,5 +115,11 @@ pub fn available_languages() -> Vec<(&'static str, &'static str)> {
         ("pl", "Polski"),
         ("ro", "Rom\u{e2}n\u{103}"),
         ("uk", "\u{423}\u{43a}\u{440}\u{430}\u{457}\u{43d}\u{441}\u{44c}\u{43a}\u{430}"),
+        ("sw", "Kiswahili"),
+        ("am", "\u{12a0}\u{121b}\u{122d}\u{129b}"),
+        ("ha", "Hausa"),
+        ("yo", "Yor\u{f9}b\u{e1}"),
+        ("af", "Afrikaans"),
+        ("ar", "\u{627}\u{644}\u{639}\u{631}\u{628}\u{64a}\u{629}"),
     ]
 }
