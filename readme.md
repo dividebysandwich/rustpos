@@ -36,17 +36,6 @@ This is a simple implementation using modern technologies. It was born out of my
 
 <img width="1179" height="1064" alt="image" src="https://github.com/user-attachments/assets/839da9a7-8090-42a3-b1cd-dec99cea7302" />
 
-## Kitchen display
-
-Cooks can access the kitchen display via the url /kitchen
-Note that there is currently no security that prevents them from accessing the POS functions. Ideally this would be added along with user accounts and roles in the future.
-
-<img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/8992a079-c2d0-4de8-ad9e-ddda83e71953" />
-
-On the POS, there's a Kitchen tab that lets the cashier check the live status of every kitchen order.
-
-<img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
-
 ## Installation
 
 RustPOS is provided in various installable packages. Simply install the applicable one. System services are provided for starting/stopping the program: ```sudo systemctl start rustpos``` starts the main program. The optional remote printer client can be started with ```sudo systemctl start rustpos-printclient```
@@ -56,6 +45,10 @@ To start the programs on system boot, enable the services as follows:
 ```sudo systemctl enable rustpos```
 or
 ```sudo systemctl enable rustpos-printclient```
+
+## Initial Setup
+
+After installing and starting RustPOS, open the url https://127.0.0.1:3000/ in your browser. A language selection screen should be visible. Note that the language and all settings can be changed during operation too.
 
 ## Receipt Printer Support
 
@@ -80,6 +73,16 @@ First, on the main RustPOS administration page, configure a *Printer Passphrase*
 >
 >```server_url = "wss://myserver.example.com"```
 
+## Kitchen display
+
+Cooks can access the kitchen display via the url /kitchen
+Note that there is currently no security that prevents them from accessing the POS functions. Ideally this would be added along with user accounts and roles in the future.
+
+<img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/8992a079-c2d0-4de8-ad9e-ddda83e71953" />
+
+On the POS, there's a Kitchen tab that lets the cashier check the live status of every kitchen order.
+
+<img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
 
 ## Customization
 
