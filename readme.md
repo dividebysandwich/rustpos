@@ -115,7 +115,7 @@ The printout is designed for 80mm receipt printers and have been tested using a 
 
 ## Remote Printer Support
 
-It may be necessary to run RustPOS on a dedicated machine or even in the cloud. In these cases, connecting a printer to the server may not be possible, and the printing should happen at the point of sale. For this reason there is a seperate print client available. This print client will connect to the main RustPOS installation via websocket, authenticate, download the receipt log from the server, and then wait for print jobs.
+It may be necessary to run RustPOS on a dedicated machine or even in the cloud. In these cases, connecting a printer to the server may not be possible, and the printing should happen at the point of sale. For this reason there is a seperate print client available. This print client will connect to the main RustPOS installation via websocket, authenticate, download the receipt logo from the server, and then wait for print jobs.
 
 > [!NOTE]
 > You do not need to install the print client if you run RustPOS itself on your POS. It will detect locally connected printers and use them directly.
@@ -132,6 +132,8 @@ Then edit ```/opt/rustpos-printclient/printclient.toml``` on the machine the pri
 > If your main RustPOS installation is available via HTTPS, the ```server_url``` should start with "wss", like in this example:
 >
 >```server_url = "wss://myserver.example.com"```
+
+The receipt logo image will be transfered from the main program after authentication. However, it can also be overridden in the print client configuration TOML.
 
 ## Kitchen display
 
