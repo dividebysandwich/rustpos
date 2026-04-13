@@ -8,7 +8,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Version = (Select-String -Path "frontend\Cargo.toml" -Pattern '^version = "(.*)"' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+$RawVersion = (Select-String -Path "frontend\Cargo.toml" -Pattern '^version = "(.*)"' | ForEach-Object { $_.Matches[0].Groups[1].Value })
+# MSI requires exactly 3-part numeric version (x.y.z)
+$Parts = $RawVersion.Split('.')
+while ($Parts.Count -lt 3) { $Parts += "0" }
+$Version = ($Parts[0..2] -join '.')
 Write-Host "Building MSI for $Target version $Version" -ForegroundColor Cyan
 
 $BinDir = "target\release"
@@ -33,6 +37,7 @@ if ($Target -eq "rustpos") {
         -dBinDir="$BinDir" `
         -dAssetsDir="frontend\assets" `
         -dSiteDir="site" `
+        -dVersion="$Version" `
         -arch x64 `
         -o "$WixDir\rustpos.wixobj" `
         "$WixDir\rustpos.wxs"
@@ -40,6 +45,7 @@ if ($Target -eq "rustpos") {
 
     candle.exe `
         -dSiteDir="site" `
+        -dVersion="$Version" `
         -arch x64 `
         -o "$WixDir\site.wixobj" `
         "$WixDir\site.wxs"
@@ -63,6 +69,7 @@ if ($Target -eq "rustpos") {
     candle.exe `
         -dBinDir="$BinDir" `
         -dSrcDir="$SrcDir" `
+        -dVersion="$Version" `
         -arch x64 `
         -o "$WixDir\printclient.wixobj" `
         "$WixDir\printclient.wxs"

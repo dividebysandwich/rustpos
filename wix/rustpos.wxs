@@ -3,7 +3,7 @@
     <Product
         Id="*"
         Name="RustPOS"
-        Version="!(bind.fileVersion.RustPOSExe)"
+        Version="$(var.Version)"
         Manufacturer="RustPOS Contributors"
         Language="1033"
         UpgradeCode="{E8A3B5C1-4D2F-4A6E-B8C9-1D3E5F7A9B0C}">

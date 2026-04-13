@@ -3,7 +3,7 @@
     <Product
         Id="*"
         Name="RustPOS Print Client"
-        Version="!(bind.fileVersion.PrintClientExe)"
+        Version="$(var.Version)"
         Manufacturer="RustPOS Contributors"
         Language="1033"
         UpgradeCode="{F9B4C6D2-5E3A-4B7F-C9D0-2E4F6A8B0C1D}">
