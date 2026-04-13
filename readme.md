@@ -135,8 +135,7 @@ Then edit ```/opt/rustpos-printclient/printclient.toml``` on the machine the pri
 
 ## Kitchen display
 
-Cooks can access the kitchen display via the url /kitchen
-Note that there is currently no security that prevents them from accessing the POS functions. Ideally this would be added along with user accounts and roles in the future.
+Cooks can access the kitchen display via the url ```/kitchen```. They are automatically redirected to that URL when logging on.
 
 <img width="1365" height="642" alt="image" src="https://github.com/user-attachments/assets/8992a079-c2d0-4de8-ad9e-ddda83e71953" />
 
