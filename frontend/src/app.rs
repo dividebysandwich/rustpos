@@ -125,7 +125,7 @@ fn AppNavbar(
                                     <A href="/items">{i18n.get().t("nav.items")}</A>
                                     <A href="/categories">{i18n.get().t("nav.categories")}</A>
                                     <A href="/reports">{i18n.get().t("nav.reports")}</A>
-                                    <A href="/admin">{i18n.get().t("nav.users")}</A>
+                                    <A href="/admin">{i18n.get().t("nav.settings")}</A>
                                 </Show>
                             }
                         }}
