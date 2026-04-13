@@ -222,15 +222,32 @@ pub fn SalePage() -> impl IntoView {
     });
 
     let filtered_items = move || {
-        let all_items = items.get();
+        let mut all_items = items.get();
+        let cats = categories.get();
         match selected_category.get() {
-            Some(cat_id) => all_items
-                .into_iter()
-                .filter(|item| item.category_id == cat_id)
-                .collect(),
-            None => all_items,
+            Some(cat_id) => {
+                all_items.retain(|item| item.category_id == cat_id);
+                all_items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+                all_items
+            }
+            None => {
+                // Sort by category order then alphabetically within each category
+                let cat_order: std::collections::HashMap<Uuid, usize> = cats
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| (c.id, i))
+                    .collect();
+                all_items.sort_by(|a, b| {
+                    let ca = cat_order.get(&a.category_id).copied().unwrap_or(usize::MAX);
+                    let cb = cat_order.get(&b.category_id).copied().unwrap_or(usize::MAX);
+                    ca.cmp(&cb)
+                        .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+                });
+                all_items
+            }
         }
     };
+
 
     let transaction_total = move || {
         transaction_items.get().iter().map(|i| i.total_price).sum::<f64>()
