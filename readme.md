@@ -31,11 +31,6 @@ This is a simple implementation using modern technologies. It was born out of my
 * SQLite database
 * Localized into several languages
 
-
-<img width="1180" height="590" alt="image" src="https://github.com/user-attachments/assets/593e7a9a-544b-419e-be8a-df64b5fdfb8f" />
-
-<img width="1179" height="1064" alt="image" src="https://github.com/user-attachments/assets/839da9a7-8090-42a3-b1cd-dec99cea7302" />
-
 ## Installation
 
 RustPOS is provided in various installable packages. Simply install the applicable one. System services are provided for starting/stopping the program: ```sudo systemctl start rustpos``` starts the main program. The optional remote printer client can be started with ```sudo systemctl start rustpos-printclient```
@@ -148,6 +143,12 @@ Note that there is currently no security that prevents them from accessing the P
 On the POS, there's a Kitchen tab that lets the cashier check the live status of every kitchen order.
 
 <img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
+
+## Reports
+
+RustPOS supports sales reports with CSV export.
+
+<img width="1339" height="1004" alt="image" src="https://github.com/user-attachments/assets/9035bc5b-f9ee-425c-a2e3-58996f3bd198" />
 
 ## Customization
 
