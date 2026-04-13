@@ -10,7 +10,7 @@ This is a simple implementation using modern technologies. It was born out of my
 > This project is a functional proof of concept and not certified to be used in a production environment.
 > It also may not meet the requirements of your fiscal authorities. Please check your local laws and regulations before using this software to perform sales.
 
-<img width="1181" height="926" alt="image" src="https://github.com/user-attachments/assets/47ed4d5f-25cf-4da2-951e-4404e58e518b" />
+<img width="994" height="915" alt="image" src="https://github.com/user-attachments/assets/4f5e2971-cb09-482e-a3dc-591ee162f7f0" />
 
 
 ## Features
