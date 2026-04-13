@@ -7,6 +7,7 @@ mod kitchen;
 mod login;
 mod admin;
 mod setup;
+pub mod keyboard;
 
 pub use sale::SalePage;
 pub use transactions::TransactionsPage;

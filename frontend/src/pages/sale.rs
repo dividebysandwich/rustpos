@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
+use crate::pages::keyboard::OnScreenKeyboard;
 use crate::server_fns::*;
 
 
@@ -126,6 +127,48 @@ pub fn SalePage() -> impl IntoView {
     let (reload_items, set_reload_items) = signal(0u32);
     let (tick, set_tick) = signal(0u32);
 
+    // On-screen keyboard state for customer name
+    let (show_name_kb, set_show_name_kb) = signal(false);
+    let (kb_shift, set_kb_shift) = signal(false);
+
+    let sync_customer_name = move || {
+        let current_trans = current_transaction.get();
+        let name = customer_name.get();
+        let cust = if name.is_empty() { None } else { Some(name) };
+        if let Some(trans_id) = current_trans {
+            leptos::task::spawn_local(async move {
+                let _ = update_transaction_details(trans_id, cust).await;
+            });
+        }
+    };
+
+    let on_name_kb_key = move |key: String| {
+        match key.as_str() {
+            "Backspace" => {
+                set_customer_name.update(|s| { s.pop(); });
+            }
+            "Enter" => {
+                set_show_name_kb.set(false);
+            }
+            "Shift" => {
+                set_kb_shift.update(|s| *s = !*s);
+                return;
+            }
+            "Space" => {
+                set_customer_name.update(|s| s.push(' '));
+            }
+            ch => {
+                let ch = if kb_shift.get() {
+                    ch.to_uppercase()
+                } else {
+                    ch.to_lowercase()
+                };
+                set_customer_name.update(|s| s.push_str(&ch));
+            }
+        }
+        sync_customer_name();
+    };
+
     Effect::new(move || { setup_tick(set_tick); });
 
     let fetch_last_closed = move || {
@@ -219,16 +262,6 @@ pub fn SalePage() -> impl IntoView {
         });
     };
 
-    let do_update_transaction = move |_| {
-        let current_trans = current_transaction.get();
-        let name = customer_name.get();
-        let cust = if name.is_empty() { None } else { Some(name) };
-        if let Some(trans_id) = current_trans {
-            leptos::task::spawn_local(async move {
-                let _ = update_transaction_details(trans_id, cust).await;
-            });
-        }
-    };
 
     let add_item = move |item: Item| {
         let current_trans = current_transaction.get();
@@ -460,12 +493,20 @@ pub fn SalePage() -> impl IntoView {
                         when=move || current_transaction.get().is_some()
                         fallback=move || view! {
                             <div class="start-transaction">
-                                <input
-                                    type="text"
-                                    placeholder=move || i18n.get().t("sale.customer_optional")
-                                    on:input=move |ev| set_customer_name.set(event_target_value(&ev))
-                                    value=move || customer_name.get()
-                                />
+                                <div class="admin-input-row">
+                                    <input
+                                        type="text"
+                                        placeholder=move || i18n.get().t("sale.customer_optional")
+                                        on:input=move |ev| set_customer_name.set(event_target_value(&ev))
+                                        prop:value=move || customer_name.get()
+                                    />
+                                    <button class="btn-secondary-small" on:click=move |_| set_show_name_kb.set(!show_name_kb.get())>
+                                        {move || if show_name_kb.get() { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}
+                                    </button>
+                                </div>
+                                <Show when=move || show_name_kb.get() && current_transaction.get().is_none() fallback=|| ()>
+                                    <OnScreenKeyboard on_key=on_name_kb_key shift=kb_shift i18n=i18n />
+                                </Show>
                                 <button class="btn-primary" on:click=start_transaction>{move || i18n.get().t("sale.new_transaction")}</button>
 
                                 <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
@@ -516,20 +557,22 @@ pub fn SalePage() -> impl IntoView {
                     >
                         <div class="transaction-active">
                             <div class="transaction-header">
-                                <table class="customer-table"><tbody>
-                                    <tr>
-                                        <td><strong>{i18n.get().t("sale.customer")}</strong></td>
-                                        <td>
-                                            <input type="text" placeholder=move || i18n.get().t("general.walkin")
-                                                on:input=move |ev| set_customer_name.set(event_target_value(&ev))
-                                                value=move || customer_name.get()
-                                            />
-                                        </td>
-                                        <td class="customer-table-actions">
-                                            <button class="btn-primary-small" on:click=do_update_transaction>{i18n.get().t("sale.update")}</button>
-                                        </td>
-                                    </tr>
-                                </tbody></table>
+                                <div class="admin-input-row">
+                                    <strong>{i18n.get().t("sale.customer")}</strong>
+                                    <input type="text" placeholder=move || i18n.get().t("general.walkin")
+                                        on:input=move |ev| {
+                                            set_customer_name.set(event_target_value(&ev));
+                                            sync_customer_name();
+                                        }
+                                        prop:value=move || customer_name.get()
+                                    />
+                                    <button class="btn-secondary-small" on:click=move |_| set_show_name_kb.set(!show_name_kb.get())>
+                                        {move || if show_name_kb.get() { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}
+                                    </button>
+                                </div>
+                                <Show when=move || show_name_kb.get() && current_transaction.get().is_some() fallback=|| ()>
+                                    <OnScreenKeyboard on_key=on_name_kb_key shift=kb_shift i18n=i18n />
+                                </Show>
                             </div>
 
                             <div class="transaction-items">

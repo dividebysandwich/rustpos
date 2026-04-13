@@ -1886,6 +1886,7 @@ button:focus-visible {
 .admin-input-row {
     display: flex;
     gap: var(--space-sm);
+    align-items: center;
 }
 
 .admin-input-row input {
