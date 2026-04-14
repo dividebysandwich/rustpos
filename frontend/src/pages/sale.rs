@@ -79,14 +79,12 @@ pub fn SalePage() -> impl IntoView {
     let i18n = expect_context::<RwSignal<I18n>>();
     let currency = expect_context::<RwSignal<String>>();
     let (authorized, set_authorized) = signal(false);
-    let (user_role, set_user_role) = signal(String::new());
 
     // Auth check
     Effect::new(move || {
         leptos::task::spawn_local(async move {
             match get_current_user().await {
                 Ok(Some(u)) if u.role == "admin" || u.role == "cashier" => {
-                    set_user_role.set(u.role);
                     set_authorized.set(true);
                 }
                 Ok(Some(u)) if u.role == "cook" => {
@@ -99,13 +97,6 @@ pub fn SalePage() -> impl IntoView {
             }
         });
     });
-
-    let do_logout = move |_| {
-        leptos::task::spawn_local(async move {
-            let _ = logout().await;
-            redirect_to_login();
-        });
-    };
 
     let (categories, set_categories) = signal(Vec::<Category>::new());
     let (items, set_items) = signal(Vec::<Item>::new());
@@ -122,7 +113,8 @@ pub fn SalePage() -> impl IntoView {
     let (last_closed_transaction, set_last_closed_transaction) =
         signal(Option::<Transaction>::None);
     let (use_quick_cash, set_use_quick_cash) = signal(true);
-    let (active_tab, set_active_tab) = signal("sale".to_string());
+    let active_sale_view = expect_context::<crate::app::ActiveSaleView>().0;
+    let (mobile_panel, set_mobile_panel) = signal("items".to_string());
     let (kitchen_orders, set_kitchen_orders) = signal(Vec::<KitchenOrder>::new());
     let (reload_items, set_reload_items) = signal(0u32);
     let (tick, set_tick) = signal(0u32);
@@ -221,6 +213,12 @@ pub fn SalePage() -> impl IntoView {
         });
     });
 
+    Effect::new(move || {
+        if active_sale_view.get() == "kitchen" {
+            set_reload_kitchen.update(|v| *v += 1);
+        }
+    });
+
     let filtered_items = move || {
         let mut all_items = items.get();
         let cats = categories.get();
@@ -261,6 +259,7 @@ pub fn SalePage() -> impl IntoView {
                 set_current_transaction.set(Some(transaction.id));
                 set_transaction_items.set(vec![]);
                 set_change_amount.set(None);
+                set_mobile_panel.set("items".to_string());
                 if let Ok(trans) = fetch_open_transactions().await {
                     set_open_transactions.set(trans);
                 }
@@ -275,6 +274,7 @@ pub fn SalePage() -> impl IntoView {
                 set_transaction_items.set(details.items);
                 set_customer_name.set(details.transaction.customer_name.unwrap_or_default());
                 set_show_open_transactions.set(false);
+                set_mobile_panel.set("items".to_string());
             }
         });
     };
@@ -395,22 +395,7 @@ pub fn SalePage() -> impl IntoView {
         </Show>
 
         <div class="sale-page">
-            // Sale/Kitchen tab switcher
-            <div class="sale-tab-bar">
-                <button
-                    class=move || if active_tab.get() == "sale" { "sale-tab active" } else { "sale-tab" }
-                    on:click=move |_| set_active_tab.set("sale".to_string())
-                >{move || i18n.get().t("sale.sale")}</button>
-                <Show when=move || user_role.get() == "admin" || user_role.get() == "cashier" fallback=|| ()>
-                    <button
-                        class=move || if active_tab.get() == "kitchen" { "sale-tab active" } else { "sale-tab" }
-                        on:click=move |_| { set_active_tab.set("kitchen".to_string()); set_reload_kitchen.update(|v| *v += 1); }
-                    >{move || i18n.get().t("sale.kitchen")}</button>
-                </Show>
-                <button class="sale-tab logout-tab" on:click=do_logout>{move || i18n.get().t("sale.logout")}</button>
-            </div>
-
-            <Show when=move || active_tab.get() == "sale" fallback=move || view! {
+            <Show when=move || active_sale_view.get() == "sale" fallback=move || view! {
                 // Kitchen status tab (read-only)
                 <div class="kitchen-status-panel">
                     <h3>{i18n.get().t("sale.kitchen_orders")}</h3>
@@ -452,7 +437,7 @@ pub fn SalePage() -> impl IntoView {
             }>
 
             <div class="sale-grid">
-                <div class="items-section">
+                <div class=move || if mobile_panel.get() == "checkout" { "items-section mobile-hidden" } else { "items-section" }>
                     <h2>{i18n.get().t("sale.items")}</h2>
                     <div class="category-tabs">
                         <button
@@ -505,7 +490,7 @@ pub fn SalePage() -> impl IntoView {
                     </div>
                 </div>
 
-                <div class="transaction-section">
+                <div class=move || if mobile_panel.get() == "items" { "transaction-section mobile-hidden" } else { "transaction-section" }>
                     <Show
                         when=move || current_transaction.get().is_some()
                         fallback=move || view! {
@@ -657,7 +642,7 @@ pub fn SalePage() -> impl IntoView {
                                                 view! {
                                                     <button class="quick-cash-btn"
                                                         on:click=move |_| set_payment_amount.set(format!("{}", v))
-                                                    >{format!("{}{}", &currency.get(), v)}</button>
+                                                    >{move || format!("{}{}", currency.get(), v)}</button>
                                                 }
                                             }
                                         </For>
@@ -702,6 +687,22 @@ pub fn SalePage() -> impl IntoView {
                         </div>
                     </Show>
                 </div>
+            </div>
+
+            <div class="mobile-bottom-bar">
+                <button
+                    class=move || if mobile_panel.get() == "items" { "mobile-tab active" } else { "mobile-tab" }
+                    on:click=move |_| set_mobile_panel.set("items".to_string())
+                >{move || i18n.get().t("sale.items")}</button>
+                <button
+                    class=move || if mobile_panel.get() == "checkout" { "mobile-tab active" } else { "mobile-tab" }
+                    on:click=move |_| set_mobile_panel.set("checkout".to_string())
+                >
+                    {move || i18n.get().t("sale.checkout")}
+                    <Show when=move || { current_transaction.get().is_some() && transaction_total() > 0.0 } fallback=|| ()>
+                        <span class="mobile-tab-badge">{move || format!("{}{:.2}", currency.get(), transaction_total())}</span>
+                    </Show>
+                </button>
             </div>
             </Show>
         </div>

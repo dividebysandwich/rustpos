@@ -163,9 +163,11 @@ button:focus-visible {
 
 .nav-links {
     display: flex;
+    flex: 1;
     gap: 0.25rem;
     overflow-x: auto;
     scrollbar-width: none;
+    align-items: center;
 }
 
 .nav-links::-webkit-scrollbar { display: none; }
@@ -185,6 +187,7 @@ button:focus-visible {
     background: var(--primary-light);
 }
 
+.nav-links a.active,
 .nav-links a[aria-current="page"] {
     color: var(--primary);
     background: var(--primary-light);
@@ -208,6 +211,54 @@ button:focus-visible {
 .dark-mode-toggle:hover {
     background: var(--primary-light);
     color: var(--primary);
+    opacity: 1;
+}
+
+/* Hamburger menu button (mobile) */
+.hamburger-btn {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+}
+
+.hamburger-btn:hover {
+    background: var(--primary-light);
+    color: var(--primary);
+    opacity: 1;
+}
+
+/* Nav actions group (dark mode + logout) */
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* Logout button in navbar */
+.nav-logout-btn {
+    padding: 0.5rem 1rem;
+    background: var(--danger-light);
+    color: var(--danger);
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.nav-logout-btn:hover {
+    background: var(--danger);
+    color: #fff;
     opacity: 1;
 }
 
@@ -1078,6 +1129,57 @@ button:focus-visible {
 }
 
 /* ============================================
+   Mobile Bottom Bar (sale page)
+   ============================================ */
+
+.mobile-bottom-bar {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-top: 2px solid var(--border);
+    box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    grid-template-columns: 1fr 1fr;
+}
+
+.mobile-tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    padding: 0.75rem;
+    font-size: 1rem;
+    font-weight: 600;
+    background: var(--surface);
+    color: var(--text-muted);
+    border: none;
+    border-radius: 0;
+    border-top: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 52px;
+}
+
+.mobile-tab.active {
+    color: var(--primary);
+    background: var(--primary-light);
+    border-top-color: var(--primary);
+}
+
+.mobile-tab-badge {
+    font-size: 0.75rem;
+    background: var(--primary);
+    color: #fff;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+}
+
+/* ============================================
    Kitchen Status Panel (cashier view)
    ============================================ */
 
@@ -1383,6 +1485,74 @@ button:focus-visible {
 }
 
 /* ============================================
+   Responsive — Mobile (max-width: 768px)
+   ============================================ */
+
+@media (max-width: 768px) {
+    .hamburger-btn {
+        display: flex;
+    }
+
+    .nav-links {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        flex-direction: column;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        box-shadow: var(--shadow-md);
+        z-index: 100;
+        padding: var(--space-sm);
+        gap: 0;
+        flex: unset;
+        overflow-x: visible;
+    }
+
+    .nav-links.nav-links-open {
+        display: flex;
+    }
+
+    .nav-links a {
+        padding: 0.85rem 1rem;
+        border-radius: var(--radius-sm);
+        font-size: 1rem;
+    }
+
+    .nav-actions {
+        margin-left: 0;
+        border-top: 1px solid var(--border);
+        padding-top: var(--space-sm);
+        margin-top: var(--space-sm);
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .sale-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-sm);
+        min-height: auto;
+    }
+
+    .mobile-bottom-bar {
+        display: grid;
+    }
+
+    .sale-page {
+        padding-bottom: 60px;
+    }
+
+    .mobile-hidden {
+        display: none !important;
+    }
+
+    .transaction-section {
+        border-top: none;
+    }
+}
+
+/* ============================================
    Responsive — Phone (max-width: 600px)
    ============================================ */
 
@@ -1394,13 +1564,8 @@ button:focus-visible {
 
     .sale-page {
         padding: var(--space-sm);
+        padding-bottom: 60px;
         border-radius: var(--radius-sm);
-    }
-
-    .sale-grid {
-        grid-template-columns: 1fr;
-        gap: var(--space-sm);
-        min-height: auto;
     }
 
     .items-grid {
@@ -1410,12 +1575,6 @@ button:focus-visible {
 
     .item-card {
         padding: var(--space-sm);
-    }
-
-    .transaction-section {
-        border-top: 2px solid var(--border);
-        padding-top: var(--space-md);
-        border-radius: 0;
     }
 
     .transaction-items {
