@@ -456,6 +456,27 @@ pub fn SalePage() -> impl IntoView {
                             }
                         </For>
                     </div>
+                    <select class="category-select"
+                        prop:value=move || selected_category.get().map(|id| id.to_string()).unwrap_or_default()
+                        on:change=move |ev| {
+                            let val = event_target_value(&ev);
+                            if val.is_empty() {
+                                set_selected_category.set(None);
+                            } else if let Ok(id) = Uuid::parse_str(&val) {
+                                set_selected_category.set(Some(id));
+                            }
+                        }
+                    >
+                        <option value="">{move || i18n.get().t("sale.all")}</option>
+                        <For each=move || categories.get() key=|cat| cat.id let:cat>
+                            {
+                                let cat_id_str = cat.id.to_string();
+                                view! {
+                                    <option value=cat_id_str>{cat.name.clone()}</option>
+                                }
+                            }
+                        </For>
+                    </select>
                     <div class="items-grid">
                         <For each=filtered_items key=|item| (item.id, item.name.clone(), item.price.to_bits(), item.in_stock, item.image_path.clone(), item.stock_quantity) let:item>
                             {
