@@ -1568,6 +1568,7 @@ button:focus-visible {
     }
 
     .sale-page {
+        padding: var(--space-sm);
         padding-bottom: 60px;
     }
 
@@ -1577,6 +1578,7 @@ button:focus-visible {
 
     .transaction-section {
         border-top: none;
+        padding: var(--space-sm);
     }
 
     .category-tabs {
@@ -1586,6 +1588,87 @@ button:focus-visible {
     .category-select {
         display: block;
     }
+
+    /* Hide on-screen keyboard controls (phones have their own) */
+    .start-transaction .btn-secondary-small,
+    .transaction-header .btn-secondary-small {
+        display: none;
+    }
+    .start-transaction .osk,
+    .transaction-header .osk {
+        display: none;
+    }
+
+    /* Hide heading (bottom bar already labels the view) */
+    .items-section h2 {
+        display: none;
+    }
+
+    /* Compact transaction total */
+    .transaction-total {
+        font-size: 1.15rem;
+        padding: var(--space-sm);
+        margin: var(--space-xs) 0;
+    }
+
+    /* Stack payment/change */
+    .payment-change-wrapper {
+        flex-direction: column;
+        gap: var(--space-xs);
+        margin: var(--space-xs) 0;
+    }
+    .payment-section,
+    .change-section {
+        padding: var(--space-xs) var(--space-sm);
+        font-size: 1rem;
+    }
+    .payment-input,
+    .change-input {
+        font-size: 1.1rem;
+    }
+
+    /* Compact keypad and quick cash */
+    .keypad-mode-toggle {
+        gap: 2px;
+        margin-bottom: 2px;
+    }
+    .keypad-toggle-btn {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    .quick-cash-grid {
+        gap: var(--space-xs);
+    }
+    .quick-cash-btn {
+        padding: 0.6rem;
+        font-size: 1.1rem;
+    }
+    .keypad {
+        gap: 2px;
+    }
+    .keypad-btn {
+        padding: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    /* Compact action buttons */
+    .action-buttons {
+        gap: var(--space-xs);
+        margin-top: var(--space-sm);
+    }
+    .action-button {
+        padding: 0.65rem;
+        font-size: 1rem;
+    }
+
+    /* Reduce start-transaction / header spacing */
+    .start-transaction {
+        gap: var(--space-sm);
+    }
+    .transaction-header {
+        padding: var(--space-xs);
+        margin-bottom: var(--space-xs);
+    }
 }
 
 /* ============================================
@@ -1594,12 +1677,12 @@ button:focus-visible {
 
 @media (max-width: 600px) {
     .container {
-        padding: 0 var(--space-sm);
-        margin: var(--space-sm) auto;
+        padding: 0 var(--space-xs);
+        margin: var(--space-xs) auto;
     }
 
     .sale-page {
-        padding: var(--space-sm);
+        padding: var(--space-xs);
         padding-bottom: 60px;
         border-radius: var(--radius-sm);
     }
@@ -1610,25 +1693,11 @@ button:focus-visible {
     }
 
     .item-card {
-        padding: var(--space-sm);
+        padding: var(--space-xs);
     }
 
     .transaction-items {
         max-height: 25vh;
-    }
-
-    .payment-change-wrapper {
-        flex-direction: column;
-    }
-
-    .keypad-btn {
-        padding: 0.6rem;
-        font-size: 1.2rem;
-    }
-
-    .action-button {
-        padding: 0.75rem;
-        font-size: 1.1rem;
     }
 
     .nav-links a {
