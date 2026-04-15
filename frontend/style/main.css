@@ -153,6 +153,7 @@ button:focus-visible {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
 }
 
 .sitelogo {
@@ -168,6 +169,7 @@ button:focus-visible {
     overflow-x: auto;
     scrollbar-width: none;
     align-items: center;
+    justify-content: center;
 }
 
 .nav-links::-webkit-scrollbar { display: none; }
@@ -234,12 +236,15 @@ button:focus-visible {
     opacity: 1;
 }
 
-/* Nav actions group (dark mode + logout) */
+/* Nav actions group (dark mode + logout) — absolute on desktop to not affect link centering */
 .nav-actions {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
-    margin-left: auto;
+    position: absolute;
+    right: var(--space-lg);
+    top: 50%;
+    transform: translateY(-50%);
     flex-shrink: 0;
 }
 
@@ -1549,6 +1554,8 @@ button:focus-visible {
     }
 
     .nav-actions {
+        position: static;
+        transform: none;
         margin-left: 0;
         border-top: 1px solid var(--border);
         padding-top: var(--space-sm);
