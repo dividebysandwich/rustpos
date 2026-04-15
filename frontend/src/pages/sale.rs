@@ -71,6 +71,43 @@ fn setup_kitchen_ws(set_reload: WriteSignal<u32>) {
 #[cfg(not(target_arch = "wasm32"))]
 fn setup_kitchen_ws(_set_reload: WriteSignal<u32>) {}
 
+#[cfg(target_arch = "wasm32")]
+fn setup_sale_ws(set_msg: WriteSignal<String>) {
+    use wasm_bindgen::prelude::*;
+
+    fn connect(set_msg: WriteSignal<String>) {
+        let win = web_sys::window().unwrap();
+        let loc = win.location();
+        let proto = if loc.protocol().unwrap_or_default() == "https:" { "wss:" } else { "ws:" };
+        let host = loc.host().unwrap_or_default();
+        let url = format!("{}//{}/ws/sale", proto, host);
+        let Ok(ws) = web_sys::WebSocket::new(&url) else { return };
+
+        let sm = set_msg;
+        let onmessage = Closure::wrap(Box::new(move |e: web_sys::MessageEvent| {
+            if let Some(msg) = e.data().as_string() {
+                sm.set(msg);
+            }
+        }) as Box<dyn Fn(_)>);
+        ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
+        onmessage.forget();
+
+        let onclose = Closure::wrap(Box::new(move |_: web_sys::CloseEvent| {
+            let sm2 = set_msg;
+            let cb = Closure::wrap(Box::new(move || { connect(sm2); }) as Box<dyn Fn()>);
+            let _ = web_sys::window().unwrap()
+                .set_timeout_with_callback_and_timeout_and_arguments_0(cb.as_ref().unchecked_ref(), 2000);
+            cb.forget();
+        }) as Box<dyn Fn(_)>);
+        ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
+        onclose.forget();
+    }
+    connect(set_msg);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn setup_sale_ws(_set_msg: WriteSignal<String>) {}
+
 #[cfg(not(target_arch = "wasm32"))]
 fn setup_tick(_set_tick: WriteSignal<u32>) {}
 
@@ -162,6 +199,63 @@ pub fn SalePage() -> impl IntoView {
     };
 
     Effect::new(move || { setup_tick(set_tick); });
+
+    // Real-time sync: listen for changes from other sale clients
+    let (sale_ws_msg, set_sale_ws_msg) = signal(String::new());
+    Effect::new(move || { setup_sale_ws(set_sale_ws_msg); });
+    Effect::new(move || {
+        let msg = sale_ws_msg.get();
+        if msg.is_empty() { return; }
+
+        if let Some(id_str) = msg.strip_prefix("update:") {
+            if let Ok(id) = Uuid::parse_str(id_str) {
+                // If we're viewing this transaction, refetch its details
+                if current_transaction.get_untracked() == Some(id) {
+                    leptos::task::spawn_local(async move {
+                        if let Ok(details) = fetch_transaction_details(id).await {
+                            set_transaction_items.set(details.items);
+                        }
+                    });
+                }
+                // Always refresh open transactions list
+                leptos::task::spawn_local(async move {
+                    if let Ok(trans) = fetch_open_transactions().await {
+                        set_open_transactions.set(trans);
+                    }
+                });
+            }
+        } else if let Some(id_str) = msg.strip_prefix("closed:") {
+            if let Ok(id) = Uuid::parse_str(id_str) {
+                // If we're viewing the closed transaction, clear it
+                if current_transaction.get_untracked() == Some(id) {
+                    set_current_transaction.set(None);
+                    set_transaction_items.set(vec![]);
+                    set_customer_name.set(String::new());
+                    set_payment_amount.set(String::new());
+                }
+                // Refresh open transactions and item stock
+                leptos::task::spawn_local(async move {
+                    if let Ok(trans) = fetch_open_transactions().await {
+                        set_open_transactions.set(trans);
+                    }
+                });
+                set_reload_items.update(|v| *v += 1);
+            }
+        } else if let Some(id_str) = msg.strip_prefix("cancelled:") {
+            if let Ok(id) = Uuid::parse_str(id_str) {
+                if current_transaction.get_untracked() == Some(id) {
+                    set_current_transaction.set(None);
+                    set_transaction_items.set(vec![]);
+                    set_customer_name.set(String::new());
+                }
+                leptos::task::spawn_local(async move {
+                    if let Ok(trans) = fetch_open_transactions().await {
+                        set_open_transactions.set(trans);
+                    }
+                });
+            }
+        }
+    });
 
     let fetch_last_closed = move || {
         leptos::task::spawn_local(async move {

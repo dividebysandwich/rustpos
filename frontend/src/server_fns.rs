@@ -666,6 +666,10 @@ pub async fn add_item_to_transaction(
     if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
         let _ = tx.send(format!("update:{}", transaction_id));
     }
+    // Notify other sale clients
+    if let Some(sb) = use_context::<crate::SaleBroadcast>() {
+        let _ = sb.0.send(format!("update:{}", transaction_id));
+    }
 
     Ok(())
 }
@@ -731,6 +735,10 @@ pub async fn remove_item_from_transaction(
     // Notify customer display
     if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
         let _ = tx.send(format!("update:{}", transaction_id));
+    }
+    // Notify other sale clients
+    if let Some(sb) = use_context::<crate::SaleBroadcast>() {
+        let _ = sb.0.send(format!("update:{}", transaction_id));
     }
 
     Ok(())
@@ -882,6 +890,10 @@ pub async fn close_transaction(
     if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
         let _ = tx.send(format!("closed:{}", id));
     }
+    // Notify other sale clients
+    if let Some(sb) = use_context::<crate::SaleBroadcast>() {
+        let _ = sb.0.send(format!("closed:{}", id));
+    }
 
     Ok(CloseTransactionResponse {
         transaction,
@@ -906,6 +918,10 @@ pub async fn cancel_transaction(id: Uuid) -> Result<Transaction, ServerFnError> 
     // Notify customer display — clear immediately
     if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
         let _ = tx.send("clear".to_string());
+    }
+    // Notify other sale clients
+    if let Some(sb) = use_context::<crate::SaleBroadcast>() {
+        let _ = sb.0.send(format!("cancelled:{}", id));
     }
 
     Ok(transaction)
