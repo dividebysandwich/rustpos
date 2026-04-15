@@ -75,13 +75,25 @@ fn setup_kitchen_ws(_set_reload: WriteSignal<u32>) {}
 fn setup_sale_ws(set_msg: WriteSignal<String>) {
     use wasm_bindgen::prelude::*;
 
+    fn schedule_reconnect(set_msg: WriteSignal<String>) {
+        let cb = Closure::wrap(Box::new(move || { connect(set_msg); }) as Box<dyn Fn()>);
+        let _ = web_sys::window().unwrap()
+            .set_timeout_with_callback_and_timeout_and_arguments_0(
+                cb.as_ref().unchecked_ref(), 3000,
+            );
+        cb.forget();
+    }
+
     fn connect(set_msg: WriteSignal<String>) {
         let win = web_sys::window().unwrap();
         let loc = win.location();
         let proto = if loc.protocol().unwrap_or_default() == "https:" { "wss:" } else { "ws:" };
         let host = loc.host().unwrap_or_default();
         let url = format!("{}//{}/ws/sale", proto, host);
-        let Ok(ws) = web_sys::WebSocket::new(&url) else { return };
+        let Ok(ws) = web_sys::WebSocket::new(&url) else {
+            schedule_reconnect(set_msg);
+            return;
+        };
 
         let sm = set_msg;
         let onmessage = Closure::wrap(Box::new(move |e: web_sys::MessageEvent| {
@@ -92,12 +104,14 @@ fn setup_sale_ws(set_msg: WriteSignal<String>) {
         ws.set_onmessage(Some(onmessage.as_ref().unchecked_ref()));
         onmessage.forget();
 
+        let onerror = Closure::wrap(Box::new(move |_: web_sys::Event| {
+            // Error is followed by onclose — reconnect handled there
+        }) as Box<dyn Fn(_)>);
+        ws.set_onerror(Some(onerror.as_ref().unchecked_ref()));
+        onerror.forget();
+
         let onclose = Closure::wrap(Box::new(move |_: web_sys::CloseEvent| {
-            let sm2 = set_msg;
-            let cb = Closure::wrap(Box::new(move || { connect(sm2); }) as Box<dyn Fn()>);
-            let _ = web_sys::window().unwrap()
-                .set_timeout_with_callback_and_timeout_and_arguments_0(cb.as_ref().unchecked_ref(), 2000);
-            cb.forget();
+            schedule_reconnect(set_msg);
         }) as Box<dyn Fn(_)>);
         ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
         onclose.forget();
