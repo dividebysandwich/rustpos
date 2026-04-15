@@ -533,6 +533,12 @@ pub async fn create_transaction(
     .fetch_one(&pool)
     .await
     .map_err(db_err)?;
+
+    // Notify other sale clients about the new open transaction
+    if let Some(sb) = use_context::<crate::SaleBroadcast>() {
+        let _ = sb.0.send(format!("update:{}", id));
+    }
+
     Ok(transaction)
 }
 

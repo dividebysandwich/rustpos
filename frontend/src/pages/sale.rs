@@ -144,7 +144,6 @@ pub fn SalePage() -> impl IntoView {
     let (customer_name, set_customer_name) = signal(String::new());
     let (change_amount, set_change_amount) = signal(Option::<f64>::None);
     let (open_transactions, set_open_transactions) = signal(Vec::<Transaction>::new());
-    let (show_open_transactions, set_show_open_transactions) = signal(false);
     let (payment_amount, set_payment_amount) = signal(String::new());
     let (canceling_transaction, set_canceling_transaction) = signal(Option::<Uuid>::None);
     let (last_closed_transaction, set_last_closed_transaction) =
@@ -368,7 +367,6 @@ pub fn SalePage() -> impl IntoView {
                 set_current_transaction.set(Some(trans_id));
                 set_transaction_items.set(details.items);
                 set_customer_name.set(details.transaction.customer_name.unwrap_or_default());
-                set_show_open_transactions.set(false);
                 set_mobile_panel.set("items".to_string());
                 let _ = set_display_transaction(Some(trans_id)).await;
             }
@@ -629,18 +627,6 @@ pub fn SalePage() -> impl IntoView {
                                 </Show>
                                 <button class="btn-primary" on:click=start_transaction>{move || i18n.get().t("sale.new_transaction")}</button>
 
-                                <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
-                                    <button
-                                        class="btn-secondary"
-                                        on:click=move |_| set_show_open_transactions.set(!show_open_transactions.get())
-                                    >
-                                        {move || if show_open_transactions.get() { i18n.get().t("sale.hide") } else { i18n.get().t("sale.show") }}
-                                        " "
-                                        {move || i18n.get().t("sale.open_transactions")}
-                                        " ("{move || open_transactions.get().len()}")"
-                                    </button>
-                                </Show>
-
                                 <Show when=move || last_closed_transaction.get().is_some() fallback=|| ()>
                                 {
                                     last_closed_transaction.get().map(|t| {
@@ -654,9 +640,9 @@ pub fn SalePage() -> impl IntoView {
                                 }
                                 </Show>
 
-                                <Show when=move || show_open_transactions.get() fallback=|| ()>
+                                <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
                                     <div class="open-transactions-list">
-                                        <For each=move || open_transactions.get() key=|t| t.id let:trans>
+                                        <For each=move || open_transactions.get() key=|t| (t.id, t.total.to_bits()) let:trans>
                                             {
                                                 let trans_id = trans.id;
                                                 view! {
