@@ -145,6 +145,12 @@ On the POS, there's a Kitchen tab that lets the cashier check the live status of
 
 <img width="1665" height="409" alt="image" src="https://github.com/user-attachments/assets/0f2d4e67-b0fc-4ebc-962b-e8069eab526c" />
 
+##  Customer display
+
+A customer display can be accessed at the url ```/display```. This will show items in the order as well as the total. The transaction will remain visible for one minute after the sale has been closed.
+
+<img width="1215" height="710" alt="image" src="https://github.com/user-attachments/assets/f577bf40-be74-4c87-b5d7-82f8ec2a573a" />
+
 ## Reports
 
 RustPOS supports sales reports with CSV export.
