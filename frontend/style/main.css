@@ -1669,6 +1669,52 @@ button:focus-visible {
         padding: var(--space-xs);
         margin-bottom: var(--space-xs);
     }
+
+    /* Prevent horizontal scroll */
+    html {
+        overflow-x: hidden;
+    }
+
+    /* Reduce container padding */
+    .container {
+        padding: 0 var(--space-sm);
+        margin: var(--space-sm) auto;
+    }
+
+    /* Allow inputs/selects to shrink below browser intrinsic min-width */
+    input, select {
+        min-width: 0;
+    }
+
+    /* Compact data table cells */
+    .data-table td {
+        padding: 0.4rem 0.5rem;
+        word-break: break-word;
+    }
+    .data-table th {
+        padding: 0.4rem 0.5rem;
+    }
+
+    /* Admin page — user rows wrap on narrow screens */
+    .admin-user-row {
+        flex-wrap: wrap;
+        padding: var(--space-sm);
+        gap: var(--space-sm);
+    }
+    .admin-user-info {
+        gap: var(--space-sm);
+    }
+    .admin-user-name {
+        word-break: break-word;
+    }
+    .admin-user-actions {
+        margin-left: auto;
+    }
+
+    /* Admin form — reduce padding */
+    .admin-form {
+        padding: var(--space-sm);
+    }
 }
 
 /* ============================================
