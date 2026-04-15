@@ -93,6 +93,7 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("login") view=LoginPage/>
                     <Route path=StaticSegment("admin") view=AdminPage/>
                     <Route path=StaticSegment("setup") view=SetupPage/>
+                    <Route path=StaticSegment("display") view=DisplayPage/>
                 </Routes>
             </main>
         </Router>
@@ -111,6 +112,7 @@ fn AppNavbar(
     let (menu_open, set_menu_open) = signal(false);
 
     let is_kitchen = move || location.pathname.get().starts_with("/kitchen");
+    let is_display = move || location.pathname.get().starts_with("/display");
     let is_login = move || location.pathname.get().starts_with("/login");
     let is_setup = move || location.pathname.get().starts_with("/setup");
 
@@ -125,7 +127,7 @@ fn AppNavbar(
     };
 
     view! {
-        <Show when=move || !is_kitchen() && !is_login() && !is_setup() fallback=|| ()>
+        <Show when=move || !is_kitchen() && !is_display() && !is_login() && !is_setup() fallback=|| ()>
             <nav class="navbar">
                 <div class="nav-container">
                     <img class="sitelogo" src="/logo_site.png"/>

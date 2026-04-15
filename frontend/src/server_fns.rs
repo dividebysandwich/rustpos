@@ -661,6 +661,12 @@ pub async fn add_item_to_transaction(
     }
 
     update_transaction_total_db(&pool, transaction_id).await?;
+
+    // Notify customer display
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
+        let _ = tx.send(format!("update:{}", transaction_id));
+    }
+
     Ok(())
 }
 
@@ -721,6 +727,12 @@ pub async fn remove_item_from_transaction(
     }
 
     update_transaction_total_db(&pool, transaction_id).await?;
+
+    // Notify customer display
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
+        let _ = tx.send(format!("update:{}", transaction_id));
+    }
+
     Ok(())
 }
 
@@ -866,6 +878,11 @@ pub async fn close_transaction(
         let _ = tx.send(());
     }
 
+    // Notify customer display — transaction closed, keep showing briefly
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
+        let _ = tx.send(format!("closed:{}", id));
+    }
+
     Ok(CloseTransactionResponse {
         transaction,
         change_amount: change,
@@ -885,7 +902,26 @@ pub async fn cancel_transaction(id: Uuid) -> Result<Transaction, ServerFnError> 
     .await
     .map_err(db_err)?
     .ok_or_else(|| not_found("Transaction not found or not open"))?;
+
+    // Notify customer display — clear immediately
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
+        let _ = tx.send("clear".to_string());
+    }
+
     Ok(transaction)
+}
+
+/// Called by the sale page to tell the customer display which transaction is active.
+#[server]
+pub async fn set_display_transaction(id: Option<Uuid>) -> Result<(), ServerFnError> {
+    if let Some(tx) = use_context::<tokio::sync::broadcast::Sender<String>>() {
+        let msg = match id {
+            Some(id) => format!("update:{}", id),
+            None => "clear".to_string(),
+        };
+        let _ = tx.send(msg);
+    }
+    Ok(())
 }
 
 // ---- Report Server Functions ----

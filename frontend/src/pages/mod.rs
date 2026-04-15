@@ -7,6 +7,7 @@ mod kitchen;
 mod login;
 mod admin;
 mod setup;
+mod display;
 pub mod keyboard;
 
 pub use sale::SalePage;
@@ -18,3 +19,4 @@ pub use kitchen::KitchenPage;
 pub use login::LoginPage;
 pub use admin::AdminPage;
 pub use setup::SetupPage;
+pub use display::DisplayPage;

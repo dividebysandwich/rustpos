@@ -260,6 +260,7 @@ pub fn SalePage() -> impl IntoView {
                 set_transaction_items.set(vec![]);
                 set_change_amount.set(None);
                 set_mobile_panel.set("items".to_string());
+                let _ = set_display_transaction(Some(transaction.id)).await;
                 if let Ok(trans) = fetch_open_transactions().await {
                     set_open_transactions.set(trans);
                 }
@@ -275,6 +276,7 @@ pub fn SalePage() -> impl IntoView {
                 set_customer_name.set(details.transaction.customer_name.unwrap_or_default());
                 set_show_open_transactions.set(false);
                 set_mobile_panel.set("items".to_string());
+                let _ = set_display_transaction(Some(trans_id)).await;
             }
         });
     };
@@ -361,6 +363,7 @@ pub fn SalePage() -> impl IntoView {
         let current_trans = current_transaction.get();
         if let Some(_trans_id) = current_trans {
             leptos::task::spawn_local(async move {
+                let _ = set_display_transaction(None).await;
                 set_current_transaction.set(None);
                 set_transaction_items.set(vec![]);
                 set_customer_name.set(String::new());

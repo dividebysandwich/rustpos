@@ -199,10 +199,12 @@ async fn main() {
 
     let (kitchen_tx, _) = broadcast::channel::<()>(16);
     let (printer_tx, _) = broadcast::channel::<rustpos_common::protocol::PrintReceiptJob>(16);
+    let (display_tx, _) = broadcast::channel::<String>(16);
 
     let app = Router::new()
         .route("/ws/kitchen", axum::routing::get(kitchen_ws_handler))
         .route("/ws/printer", axum::routing::get(printer_ws_handler))
+        .route("/ws/display", axum::routing::get(display_ws_handler))
         .nest_service("/item_images", tower_http::services::ServeDir::new("data/item_images"))
         .leptos_routes_with_context(
             &leptos_options,
@@ -211,10 +213,12 @@ async fn main() {
                 let db = db.clone();
                 let kitchen_tx = kitchen_tx.clone();
                 let printer_tx = printer_tx.clone();
+                let display_tx = display_tx.clone();
                 move || {
                     provide_context(db.clone());
                     provide_context(kitchen_tx.clone());
                     provide_context(printer_tx.clone());
+                    provide_context(display_tx.clone());
                 }
             },
             {
@@ -225,6 +229,7 @@ async fn main() {
         .fallback(leptos_axum::file_and_error_handler(shell))
         .layer(axum::Extension(kitchen_tx))
         .layer(axum::Extension(printer_tx))
+        .layer(axum::Extension(display_tx))
         .layer(axum::Extension(db.clone()))
         .with_state(leptos_options);
 
@@ -256,6 +261,37 @@ async fn kitchen_ws_handler(
                     match result {
                         Ok(()) => {
                             if socket.send(Message::Text("refresh".into())).await.is_err() {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                msg = socket.recv() => {
+                    match msg {
+                        Some(Ok(_)) => {}
+                        _ => break,
+                    }
+                }
+            }
+        }
+    })
+}
+
+#[cfg(feature = "ssr")]
+async fn display_ws_handler(
+    wsu: axum::extract::ws::WebSocketUpgrade,
+    axum::Extension(tx): axum::Extension<tokio::sync::broadcast::Sender<String>>,
+) -> impl axum::response::IntoResponse {
+    use axum::extract::ws::Message;
+    wsu.on_upgrade(move |mut socket| async move {
+        let mut rx = tx.subscribe();
+        loop {
+            tokio::select! {
+                result = rx.recv() => {
+                    match result {
+                        Ok(msg) => {
+                            if socket.send(Message::Text(msg.into())).await.is_err() {
                                 break;
                             }
                         }

@@ -2543,3 +2543,87 @@ button:focus-visible {
 .currency-custom-row button {
     white-space: nowrap;
 }
+
+/* ============================================
+   Customer Display Page (/display)
+   ============================================ */
+
+.display-page {
+    background: #000;
+    color: #f0f0f0;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+.display-items {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 2rem;
+}
+
+.display-item-row {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #222;
+    font-size: 2.2rem;
+}
+
+.display-item-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.display-item-qty {
+    min-width: 3.5rem;
+    text-align: center;
+    color: #f0f0f0;
+    font-size: 1.8rem;
+}
+
+.display-item-price {
+    min-width: 6rem;
+    text-align: right;
+    font-weight: 700;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.display-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: #111;
+    border-top: 2px solid #333;
+    flex-shrink: 0;
+}
+
+.display-total span:last-child {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+}
+
+@media (max-width: 768px) {
+    .display-items {
+        padding: 1rem;
+    }
+    .display-item-row {
+        font-size: 1.5rem;
+        gap: 0.5rem;
+    }
+    .display-item-qty {
+        min-width: 2.5rem;
+        font-size: 1.2rem;
+    }
+    .display-item-price {
+        min-width: 4.5rem;
+    }
+    .display-total {
+        padding: 1rem;
+        font-size: 2.5rem;
+    }
+}
