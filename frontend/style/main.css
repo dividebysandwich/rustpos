@@ -1579,6 +1579,36 @@ button:focus-visible {
     .transaction-section {
         border-top: none;
         padding: var(--space-sm);
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Force all transaction children to respect container width */
+    .transaction-active,
+    .start-transaction,
+    .keypad-section,
+    .transaction-items,
+    .transaction-total,
+    .payment-change-wrapper,
+    .action-buttons {
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    /* Force data table to fixed layout so it respects width: 100% */
+    .data-table {
+        table-layout: fixed;
+    }
+    .data-table td:first-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Shrink remove button for narrow screens */
+    .btn-remove {
+        width: 2em;
+        height: 1.75em;
+        font-size: 0.95rem;
     }
 
     .category-tabs {
@@ -1604,9 +1634,10 @@ button:focus-visible {
 
     /* Compact transaction total */
     .transaction-total {
-        font-size: 1.15rem;
-        padding: var(--space-sm);
+        font-size: 1.1rem;
+        padding: var(--space-xs) var(--space-sm);
         margin: var(--space-xs) 0;
+        overflow: hidden;
     }
 
     /* Stack payment/change */
@@ -1625,8 +1656,9 @@ button:focus-visible {
         font-size: 1.1rem;
     }
 
-    /* Compact keypad and quick cash */
+    /* Compact keypad and quick cash — minmax(0,1fr) allows columns to shrink below content width */
     .keypad-mode-toggle {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 2px;
         margin-bottom: 2px;
     }
@@ -1634,30 +1666,36 @@ button:focus-visible {
         padding: 0.25rem 0.4rem;
         font-size: 0.8rem;
         min-width: 0;
+        overflow: hidden;
     }
     .quick-cash-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 3px;
     }
     .quick-cash-btn {
         padding: 0.4rem;
         font-size: 1rem;
         min-width: 0;
+        min-height: 36px;
         overflow: hidden;
         border-width: 1px;
     }
     .keypad {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 2px;
     }
     .keypad-btn {
         padding: 0.4rem;
         font-size: 1rem;
         min-width: 0;
+        min-height: 36px;
         overflow: hidden;
-        min-height: 38px;
+        box-shadow: none;
     }
 
     /* Compact action buttons */
     .action-buttons {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 3px;
         margin-top: var(--space-sm);
     }
@@ -1665,9 +1703,9 @@ button:focus-visible {
         padding: 0.5rem 0.25rem;
         font-size: 0.85rem;
         min-width: 0;
+        min-height: 38px;
         overflow: hidden;
         letter-spacing: 0;
-        min-height: 40px;
     }
 
     /* Reduce start-transaction / header spacing */
