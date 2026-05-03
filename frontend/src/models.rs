@@ -96,6 +96,21 @@ pub struct SalesReport {
     pub summary: ReportSummary,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeseriesBucket {
+    pub bucket_start: DateTime<Utc>,
+    pub label: String,
+    pub quantities: Vec<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ItemSalesTimeseries {
+    pub item_ids: Vec<Uuid>,
+    pub item_names: Vec<String>,
+    pub buckets: Vec<TimeseriesBucket>,
+    pub bucket_unit: String,
+}
+
 // User / Auth models
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

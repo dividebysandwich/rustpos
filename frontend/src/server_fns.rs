@@ -974,6 +974,148 @@ pub async fn fetch_monthly_report() -> Result<SalesReport, ServerFnError> {
 }
 
 #[server]
+pub async fn fetch_item_sales_timeseries(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+    top_n: i64,
+) -> Result<ItemSalesTimeseries, ServerFnError> {
+    use chrono::{Datelike, TimeZone, Timelike};
+
+    if end_date <= start_date {
+        return Err(not_found("End date must be after start date"));
+    }
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    // Determine bucket size: hourly for short periods, daily otherwise.
+    let duration = end_date.signed_duration_since(start_date);
+    let use_hourly = duration <= chrono::Duration::hours(48);
+
+    // Top N items by quantity within the period.
+    #[derive(sqlx::FromRow)]
+    struct TopRow {
+        item_id: Uuid,
+        item_name: String,
+    }
+    let top_items = sqlx::query_as::<_, TopRow>(
+        "SELECT i.id as item_id, i.name as item_name
+         FROM transaction_items ti
+         JOIN items i ON ti.item_id = i.id
+         JOIN transactions t ON ti.transaction_id = t.id
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         GROUP BY i.id, i.name
+         ORDER BY SUM(ti.quantity) DESC
+         LIMIT ?",
+    )
+    .bind(start_date)
+    .bind(end_date)
+    .bind(top_n)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let item_ids: Vec<Uuid> = top_items.iter().map(|r| r.item_id).collect();
+    let item_names: Vec<String> = top_items.iter().map(|r| r.item_name.clone()).collect();
+    let item_index: std::collections::HashMap<Uuid, usize> = item_ids
+        .iter()
+        .enumerate()
+        .map(|(i, id)| (*id, i))
+        .collect();
+
+    // Pre-compute buckets covering the full requested range so empty periods still appear.
+    let mut buckets: Vec<TimeseriesBucket> = Vec::new();
+    let n = item_ids.len();
+    if use_hourly {
+        let mut t = chrono::Utc
+            .with_ymd_and_hms(
+                start_date.year(),
+                start_date.month(),
+                start_date.day(),
+                start_date.hour(),
+                0,
+                0,
+            )
+            .single()
+            .unwrap_or(start_date);
+        while t < end_date {
+            buckets.push(TimeseriesBucket {
+                bucket_start: t,
+                label: t.format("%H:%M").to_string(),
+                quantities: vec![0i64; n],
+            });
+            t = t + chrono::Duration::hours(1);
+        }
+    } else {
+        let mut d = start_date.date_naive();
+        let end_d = end_date.date_naive();
+        while d <= end_d {
+            let ts = d
+                .and_hms_opt(0, 0, 0)
+                .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                .unwrap_or(start_date);
+            buckets.push(TimeseriesBucket {
+                bucket_start: ts,
+                label: d.format("%m-%d").to_string(),
+                quantities: vec![0i64; n],
+            });
+            d = d.succ_opt().unwrap_or(d);
+        }
+    }
+
+    if n == 0 || buckets.is_empty() {
+        return Ok(ItemSalesTimeseries {
+            item_ids,
+            item_names,
+            buckets,
+            bucket_unit: if use_hourly { "hour".into() } else { "day".into() },
+        });
+    }
+
+    // Pull raw rows for the top items and aggregate.
+    let placeholders = vec!["?"; item_ids.len()].join(",");
+    let sql = format!(
+        "SELECT ti.item_id as item_id, ti.quantity as quantity, t.closed_at as closed_at
+         FROM transaction_items ti
+         JOIN transactions t ON ti.transaction_id = t.id
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+           AND ti.item_id IN ({})",
+        placeholders
+    );
+    let mut q = sqlx::query_as::<_, (Uuid, i64, DateTime<Utc>)>(&sql)
+        .bind(start_date)
+        .bind(end_date);
+    for id in &item_ids {
+        q = q.bind(id);
+    }
+    let rows = q.fetch_all(&pool).await.map_err(db_err)?;
+
+    for (item_id, qty, closed_at) in rows {
+        let Some(&idx) = item_index.get(&item_id) else { continue };
+        // Find bucket index by linear scan with simple math
+        let bucket_idx = if use_hourly {
+            let diff = closed_at.signed_duration_since(buckets[0].bucket_start);
+            let h = diff.num_hours();
+            if h < 0 { continue; }
+            h as usize
+        } else {
+            let diff = closed_at.date_naive().signed_duration_since(buckets[0].bucket_start.date_naive());
+            let d = diff.num_days();
+            if d < 0 { continue; }
+            d as usize
+        };
+        if let Some(b) = buckets.get_mut(bucket_idx) {
+            b.quantities[idx] += qty;
+        }
+    }
+
+    Ok(ItemSalesTimeseries {
+        item_ids,
+        item_names,
+        buckets,
+        bucket_unit: if use_hourly { "hour".into() } else { "day".into() },
+    })
+}
+
+#[server]
 pub async fn export_report_csv(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,

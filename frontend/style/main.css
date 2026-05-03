@@ -988,6 +988,98 @@ button:focus-visible {
     font-weight: 500;
 }
 
+/* Chart styling */
+.charts-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: var(--space-md);
+    margin: var(--space-xl) 0;
+}
+
+.chart-card {
+    background: var(--light);
+    border-radius: var(--radius-sm);
+    padding: var(--space-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.chart-card h3 {
+    margin: 0 0 var(--space-sm) 0;
+    font-size: 1rem;
+}
+
+.chart-card-wide {
+    margin: var(--space-xl) 0;
+}
+
+.chart-pie-container {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    flex-wrap: wrap;
+}
+
+.chart-pie {
+    width: 220px;
+    height: 220px;
+    flex-shrink: 0;
+}
+
+.chart-stacked {
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+    display: block;
+}
+
+.chart-legend {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    min-width: 160px;
+}
+
+.chart-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 2px 0;
+    font-size: 0.85rem;
+}
+
+.chart-legend-horizontal {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+}
+
+.chart-legend-horizontal li {
+    flex: 0 0 auto;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.legend-value {
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+}
+
 /* ============================================
    Modals
    ============================================ */

@@ -184,6 +184,9 @@
   "reports.revenue": "Revenue",
   "reports.avg_price": "Avg Price",
   "reports.total": "Total",
+  "reports.chart_top_quantity": "Most Sold Items",
+  "reports.chart_top_revenue": "Top Revenue Items",
+  "reports.chart_top10_over_time": "Top 10 Items Sold Over Time",
 
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",

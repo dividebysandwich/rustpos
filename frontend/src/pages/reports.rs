@@ -5,6 +5,282 @@ use crate::i18n::I18n;
 use crate::models::*;
 use crate::server_fns::*;
 
+const CHART_PALETTE: [&str; 10] = [
+    "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
+    "#06b6d4", "#ec4899", "#84cc16", "#f97316", "#6366f1",
+];
+
+#[derive(Clone)]
+struct PieSlice {
+    label: String,
+    value: f64,
+    color: String,
+}
+
+fn pie_chart_view(slices: Vec<PieSlice>, value_fmt: impl Fn(f64) -> String + 'static) -> impl IntoView {
+    let total: f64 = slices.iter().map(|s| s.value).sum();
+    let cx = 110.0_f64;
+    let cy = 110.0_f64;
+    let r = 100.0_f64;
+
+    let mut paths: Vec<(String, String, f64, String)> = Vec::new();
+    let mut acc = 0.0_f64;
+    if total > 0.0 {
+        for s in &slices {
+            let frac = s.value / total;
+            let start = acc;
+            let end = acc + frac;
+            acc = end;
+            // Convert fraction (0..1) to angle starting at -PI/2 (top), going clockwise.
+            let a0 = -std::f64::consts::FRAC_PI_2 + start * std::f64::consts::TAU;
+            let a1 = -std::f64::consts::FRAC_PI_2 + end * std::f64::consts::TAU;
+            let x0 = cx + r * a0.cos();
+            let y0 = cy + r * a0.sin();
+            let x1 = cx + r * a1.cos();
+            let y1 = cy + r * a1.sin();
+            let large = if frac > 0.5 { 1 } else { 0 };
+            // Single full slice (frac >= 1.0): draw two half-arcs to form a full disc.
+            let d = if frac >= 0.999 {
+                let top_x = cx;
+                let top_y = cy - r;
+                let bot_x = cx;
+                let bot_y = cy + r;
+                format!(
+                    "M {:.2} {:.2} A {:.2} {:.2} 0 1 1 {:.2} {:.2} A {:.2} {:.2} 0 1 1 {:.2} {:.2} Z",
+                    top_x, top_y, r, r, bot_x, bot_y, r, r, top_x, top_y
+                )
+            } else {
+                format!(
+                    "M {cx:.2} {cy:.2} L {x0:.2} {y0:.2} A {r:.2} {r:.2} 0 {large} 1 {x1:.2} {y1:.2} Z"
+                )
+            };
+            paths.push((d, s.color.clone(), frac, s.label.clone()));
+        }
+    }
+
+    let legend_items: Vec<_> = slices
+        .iter()
+        .map(|s| {
+            let pct = if total > 0.0 { s.value / total * 100.0 } else { 0.0 };
+            (s.label.clone(), s.color.clone(), value_fmt(s.value), pct)
+        })
+        .collect();
+
+    view! {
+        <div class="chart-pie-container">
+            <svg class="chart-pie" viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg">
+                {paths.into_iter().map(|(d, color, _frac, label)| {
+                    view! {
+                        <path d=d fill=color stroke="white" stroke-width="2">
+                            <title>{label}</title>
+                        </path>
+                    }
+                }).collect_view()}
+                {move || if total <= 0.0 {
+                    Some(view! { <circle cx="110" cy="110" r="100" fill="#e5e7eb" /> })
+                } else { None }}
+            </svg>
+            <ul class="chart-legend">
+                {legend_items.into_iter().map(|(label, color, val, pct)| {
+                    view! {
+                        <li>
+                            <span class="legend-swatch" style=format!("background:{}", color)></span>
+                            <span class="legend-label">{label}</span>
+                            <span class="legend-value">{val}" ("{format!("{:.1}", pct)}"%)"</span>
+                        </li>
+                    }
+                }).collect_view()}
+            </ul>
+        </div>
+    }
+}
+
+fn stacked_bar_chart_view(ts: ItemSalesTimeseries) -> impl IntoView {
+    let n_buckets = ts.buckets.len();
+    let n_items = ts.item_names.len();
+
+    // SVG dimensions
+    let width = 900.0_f64;
+    let height = 360.0_f64;
+    let margin_left = 50.0_f64;
+    let margin_right = 20.0_f64;
+    let margin_top = 20.0_f64;
+    let margin_bottom = 50.0_f64;
+    let plot_w = width - margin_left - margin_right;
+    let plot_h = height - margin_top - margin_bottom;
+
+    // Compute max stacked total across buckets
+    let max_total: i64 = ts
+        .buckets
+        .iter()
+        .map(|b| b.quantities.iter().sum::<i64>())
+        .max()
+        .unwrap_or(0)
+        .max(1);
+
+    // Round max up to a "nice" tick value for the y axis
+    let nice_max = nice_ceiling(max_total);
+
+    let bar_w = if n_buckets > 0 {
+        (plot_w / n_buckets as f64) * 0.7
+    } else {
+        0.0
+    };
+    let bar_step = if n_buckets > 0 {
+        plot_w / n_buckets as f64
+    } else {
+        0.0
+    };
+
+    // Decide x-axis label stride to avoid overlap
+    let label_stride = if n_buckets <= 12 {
+        1
+    } else if n_buckets <= 30 {
+        2
+    } else if n_buckets <= 60 {
+        5
+    } else {
+        (n_buckets / 12).max(1)
+    };
+
+    // y-axis ticks
+    let n_ticks = 5;
+    let tick_values: Vec<i64> = (0..=n_ticks)
+        .map(|i| nice_max * i as i64 / n_ticks as i64)
+        .collect();
+
+    let segments: Vec<(f64, f64, f64, f64, String, String)> = {
+        let mut out = Vec::new();
+        for (bi, bucket) in ts.buckets.iter().enumerate() {
+            let x = margin_left + bar_step * bi as f64 + (bar_step - bar_w) / 2.0;
+            let mut y_acc = margin_top + plot_h;
+            for (ii, &qty) in bucket.quantities.iter().enumerate() {
+                if qty <= 0 {
+                    continue;
+                }
+                let h = qty as f64 / nice_max as f64 * plot_h;
+                let y = y_acc - h;
+                let color = CHART_PALETTE[ii % CHART_PALETTE.len()].to_string();
+                let title = format!(
+                    "{} — {}: {}",
+                    bucket.label,
+                    ts.item_names.get(ii).cloned().unwrap_or_default(),
+                    qty
+                );
+                out.push((x, y, bar_w, h, color, title));
+                y_acc = y;
+            }
+        }
+        out
+    };
+
+    let x_labels: Vec<(f64, String)> = ts
+        .buckets
+        .iter()
+        .enumerate()
+        .filter_map(|(i, b)| {
+            if i % label_stride != 0 {
+                return None;
+            }
+            let x = margin_left + bar_step * i as f64 + bar_step / 2.0;
+            Some((x, b.label.clone()))
+        })
+        .collect();
+
+    let legend: Vec<(String, String)> = ts
+        .item_names
+        .iter()
+        .enumerate()
+        .map(|(i, name)| (CHART_PALETTE[i % CHART_PALETTE.len()].to_string(), name.clone()))
+        .collect();
+
+    view! {
+        <div class="chart-stacked-container">
+            <svg class="chart-stacked" viewBox=format!("0 0 {} {}", width, height) preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                // y-axis grid + ticks
+                {tick_values.iter().map(|&v| {
+                    let y = margin_top + plot_h - (v as f64 / nice_max as f64 * plot_h);
+                    view! {
+                        <g>
+                            <line x1=margin_left y1=y x2={margin_left + plot_w} y2=y stroke="#e5e7eb" stroke-width="1" />
+                            <text x={margin_left - 6.0} y={y + 4.0} text-anchor="end" font-size="11" fill="#6b7280">{v.to_string()}</text>
+                        </g>
+                    }
+                }).collect_view()}
+                // x-axis baseline
+                <line x1=margin_left y1={margin_top + plot_h} x2={margin_left + plot_w} y2={margin_top + plot_h} stroke="#9ca3af" stroke-width="1" />
+                // Bars
+                {segments.into_iter().map(|(x, y, w, h, color, title)| {
+                    view! {
+                        <rect x=x y=y width=w height=h fill=color>
+                            <title>{title}</title>
+                        </rect>
+                    }
+                }).collect_view()}
+                // X labels
+                {x_labels.into_iter().map(|(x, label)| {
+                    view! {
+                        <text x=x y={margin_top + plot_h + 18.0} text-anchor="middle" font-size="11" fill="#374151">{label}</text>
+                    }
+                }).collect_view()}
+                {move || if n_items == 0 {
+                    Some(view! {
+                        <text x={width/2.0} y={height/2.0} text-anchor="middle" font-size="14" fill="#9ca3af">"No data"</text>
+                    })
+                } else { None }}
+            </svg>
+            <ul class="chart-legend chart-legend-horizontal">
+                {legend.into_iter().map(|(color, name)| {
+                    view! {
+                        <li>
+                            <span class="legend-swatch" style=format!("background:{}", color)></span>
+                            <span class="legend-label">{name}</span>
+                        </li>
+                    }
+                }).collect_view()}
+            </ul>
+        </div>
+    }
+}
+
+fn build_top_slices<T>(
+    items: &[&T],
+    top: usize,
+    value_of: impl Fn(&T) -> f64,
+    name_of: impl Fn(&T) -> String,
+) -> Vec<PieSlice> {
+    let mut slices: Vec<PieSlice> = items
+        .iter()
+        .take(top)
+        .enumerate()
+        .map(|(i, it)| PieSlice {
+            label: name_of(it),
+            value: value_of(it),
+            color: CHART_PALETTE[i % CHART_PALETTE.len()].to_string(),
+        })
+        .collect();
+    let rest: f64 = items.iter().skip(top).map(|it| value_of(it)).sum();
+    if rest > 0.0 {
+        slices.push(PieSlice {
+            label: "Other".to_string(),
+            value: rest,
+            color: "#9ca3af".to_string(),
+        });
+    }
+    slices.into_iter().filter(|s| s.value > 0.0).collect()
+}
+
+fn nice_ceiling(n: i64) -> i64 {
+    if n <= 0 { return 1; }
+    let mag = 10_i64.pow((n as f64).log10().floor() as u32);
+    let leading = n as f64 / mag as f64;
+    let nice_leading = if leading <= 1.0 { 1 }
+        else if leading <= 2.0 { 2 }
+        else if leading <= 5.0 { 5 }
+        else { 10 };
+    nice_leading * mag
+}
+
 fn redirect_to_login_reports() {
     #[cfg(target_arch = "wasm32")]
     {
@@ -42,6 +318,7 @@ pub fn ReportsPage() -> impl IntoView {
     });
 
     let (report, set_report) = signal(Option::<SalesReport>::None);
+    let (timeseries, set_timeseries) = signal(Option::<ItemSalesTimeseries>::None);
     let (report_type, set_report_type) = signal(String::from("daily"));
     let (start_date, set_start_date) = signal(String::new());
     let (end_date, set_end_date) = signal(String::new());
@@ -85,8 +362,17 @@ pub fn ReportsPage() -> impl IntoView {
             };
 
             match result {
-                Ok(report_data) => { set_report.set(Some(report_data)); set_error.set(None); }
-                Err(e) => { set_error.set(Some(e)); set_report.set(None); }
+                Ok(report_data) => {
+                    let sd = report_data.start_date;
+                    let ed = report_data.end_date;
+                    set_report.set(Some(report_data));
+                    set_error.set(None);
+                    match fetch_item_sales_timeseries(sd, ed, 10).await {
+                        Ok(ts) => set_timeseries.set(Some(ts)),
+                        Err(_) => set_timeseries.set(None),
+                    }
+                }
+                Err(e) => { set_error.set(Some(e)); set_report.set(None); set_timeseries.set(None); }
             }
             set_loading.set(false);
         });
@@ -177,6 +463,40 @@ pub fn ReportsPage() -> impl IntoView {
                                     {report_data.summary.top_selling_item.as_ref().map(|item| view! { <div class="highlight"><strong>{i18n.get().t("reports.top_selling")}</strong>{item.clone()}</div> })}
                                     {report_data.summary.top_revenue_item.as_ref().map(|item| view! { <div class="highlight"><strong>{i18n.get().t("reports.top_revenue")}</strong>{item.clone()}</div> })}
                                 </div>
+
+                                {if report_data.items.is_empty() {
+                                    view! { <></> }.into_any()
+                                } else {
+                                    let mut by_qty: Vec<&ItemSalesReport> = report_data.items.iter().collect();
+                                    by_qty.sort_by(|a, b| b.quantity_sold.cmp(&a.quantity_sold));
+                                    let qty_slices = build_top_slices(&by_qty, 8, |it| it.quantity_sold as f64, |it| it.item_name.clone());
+                                    // items already arrives sorted by revenue desc
+                                    let by_rev: Vec<&ItemSalesReport> = report_data.items.iter().collect();
+                                    let rev_slices = build_top_slices(&by_rev, 8, |it| it.total_revenue, |it| it.item_name.clone());
+                                    let cur_for_pie = currency.get();
+                                    view! {
+                                        <div class="charts-row">
+                                            <div class="chart-card">
+                                                <h3>{i18n.get().t("reports.chart_top_quantity")}</h3>
+                                                {pie_chart_view(qty_slices, |v| format!("{}", v as i64))}
+                                            </div>
+                                            <div class="chart-card">
+                                                <h3>{i18n.get().t("reports.chart_top_revenue")}</h3>
+                                                {pie_chart_view(rev_slices, move |v| format!("{} {:.2}", cur_for_pie, v))}
+                                            </div>
+                                        </div>
+                                    }.into_any()
+                                }}
+
+                                {move || timeseries.get().map(|ts| {
+                                    let i18n_v = i18n.get();
+                                    view! {
+                                        <div class="chart-card chart-card-wide">
+                                            <h3>{i18n_v.t("reports.chart_top10_over_time")}</h3>
+                                            {stacked_bar_chart_view(ts)}
+                                        </div>
+                                    }
+                                })}
 
                                 <h3>{i18n.get().t("reports.sales_by_item")}</h3>
                                 {if report_data.items.is_empty() {
