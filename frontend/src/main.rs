@@ -352,7 +352,11 @@ async fn validate_printer_passphrase(db: &sqlx::SqlitePool, passphrase: &str) ->
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
     hasher.update(passphrase.as_bytes());
-    let hash = format!("{:x}", hasher.finalize());
+    let hash = hasher.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
+        use std::fmt::Write;
+        let _ = write!(s, "{:02x}", b);
+        s
+    });
 
     let stored: Option<String> =
         sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_passphrase'")

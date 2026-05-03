@@ -19,7 +19,11 @@ fn hash_pin(pin: &str) -> String {
     use sha2::{Sha256, Digest};
     let mut hasher = Sha256::new();
     hasher.update(pin.as_bytes());
-    format!("{:x}", hasher.finalize())
+    hasher.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
+        use std::fmt::Write;
+        let _ = write!(s, "{:02x}", b);
+        s
+    })
 }
 
 #[cfg(feature = "ssr")]
