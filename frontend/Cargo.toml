@@ -7,12 +7,12 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-leptos = { version = "0.8.17" }
+leptos = { version = "0.8.19" }
 leptos_router = "0.8.13"
 leptos_meta = "0.8.6"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-uuid = { version = "1.23.0", features = ["serde"] }
+uuid = { version = "1.23.1", features = ["serde"] }
 chrono = { version = "0.4.44", features = ["serde"] }
 
 # SSR dependencies
@@ -28,17 +28,17 @@ tracing-subscriber = { version = "0.3.23", optional = true }
 rustpos-common = { path = "../common", optional = true }
 base64 = { version = "0.22", optional = true }
 rand = { version = "0.8", optional = true }
-sha2 = { version = "0.10", optional = true }
+sha2 = { version = "0.11", optional = true }
 
 # Hydrate dependencies
-wasm-bindgen = { version = "0.2.117", optional = true }
+wasm-bindgen = { version = "0.2.120", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
-web-sys = { version = "0.3.94", optional = true, features = [
+web-sys = { version = "0.3.97", optional = true, features = [
     "File", "FileList", "FileReader", "HtmlInputElement", "HtmlCanvasElement",
     "HtmlImageElement", "CanvasRenderingContext2d", "HtmlAnchorElement", "Window",
     "WebSocket", "MessageEvent", "CloseEvent", "Location",
 ] }
-js-sys = { version = "0.3.94", optional = true }
+js-sys = { version = "0.3.97", optional = true }
 
 [features]
 hydrate = [
