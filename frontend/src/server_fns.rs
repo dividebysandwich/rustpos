@@ -1116,6 +1116,285 @@ pub async fn fetch_item_sales_timeseries(
 }
 
 #[server]
+pub async fn fetch_revenue_timeseries(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+) -> Result<RevenueTimeseries, ServerFnError> {
+    use chrono::{Datelike, TimeZone, Timelike};
+    if end_date <= start_date {
+        return Err(not_found("End date must be after start date"));
+    }
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let duration = end_date.signed_duration_since(start_date);
+    let use_hourly = duration <= chrono::Duration::hours(48);
+
+    let mut buckets: Vec<RevenueBucket> = Vec::new();
+    if use_hourly {
+        let mut t = chrono::Utc
+            .with_ymd_and_hms(
+                start_date.year(),
+                start_date.month(),
+                start_date.day(),
+                start_date.hour(),
+                0,
+                0,
+            )
+            .single()
+            .unwrap_or(start_date);
+        while t < end_date {
+            buckets.push(RevenueBucket {
+                bucket_start: t,
+                label: t.format("%H:%M").to_string(),
+                revenue: 0.0,
+            });
+            t = t + chrono::Duration::hours(1);
+        }
+    } else {
+        let mut d = start_date.date_naive();
+        let end_d = end_date.date_naive();
+        while d <= end_d {
+            let ts = d
+                .and_hms_opt(0, 0, 0)
+                .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                .unwrap_or(start_date);
+            buckets.push(RevenueBucket {
+                bucket_start: ts,
+                label: d.format("%m-%d").to_string(),
+                revenue: 0.0,
+            });
+            d = d.succ_opt().unwrap_or(d);
+        }
+    }
+
+    let rows = sqlx::query_as::<_, (f64, DateTime<Utc>)>(
+        "SELECT total, closed_at FROM transactions
+         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?",
+    )
+    .bind(start_date)
+    .bind(end_date)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let mut total_revenue = 0.0_f64;
+    if !buckets.is_empty() {
+        for (total, closed_at) in rows {
+            total_revenue += total;
+            let idx = if use_hourly {
+                let h = closed_at.signed_duration_since(buckets[0].bucket_start).num_hours();
+                if h < 0 { continue; }
+                h as usize
+            } else {
+                let d = closed_at.date_naive().signed_duration_since(buckets[0].bucket_start.date_naive()).num_days();
+                if d < 0 { continue; }
+                d as usize
+            };
+            if let Some(b) = buckets.get_mut(idx) {
+                b.revenue += total;
+            }
+        }
+    }
+
+    Ok(RevenueTimeseries {
+        buckets,
+        bucket_unit: if use_hourly { "hour".into() } else { "day".into() },
+        total_revenue,
+    })
+}
+
+#[server]
+pub async fn fetch_basket_size_distribution(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+) -> Result<BasketSizeDistribution, ServerFnError> {
+    if end_date <= start_date {
+        return Err(not_found("End date must be after start date"));
+    }
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let rows = sqlx::query_as::<_, (Uuid, i64)>(
+        "SELECT t.id, COALESCE(SUM(ti.quantity), 0) as items_count
+         FROM transactions t
+         LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         GROUP BY t.id",
+    )
+    .bind(start_date)
+    .bind(end_date)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    // Bucket boundaries (inclusive lower / inclusive upper, last is open-ended).
+    let edges: [(i64, i64, &str); 6] = [
+        (1, 1, "1"),
+        (2, 2, "2"),
+        (3, 3, "3"),
+        (4, 5, "4-5"),
+        (6, 9, "6-9"),
+        (10, i64::MAX, "10+"),
+    ];
+    let mut counts = [0i64; 6];
+    let mut total_items: i64 = 0;
+    let mut total_baskets: i64 = 0;
+    for (_id, qty) in &rows {
+        if *qty <= 0 { continue; }
+        total_baskets += 1;
+        total_items += qty;
+        for (i, (lo, hi, _)) in edges.iter().enumerate() {
+            if *qty >= *lo && *qty <= *hi {
+                counts[i] += 1;
+                break;
+            }
+        }
+    }
+
+    let buckets: Vec<BasketSizeBucket> = edges
+        .iter()
+        .enumerate()
+        .map(|(i, (_, _, label))| BasketSizeBucket {
+            label: (*label).to_string(),
+            count: counts[i],
+        })
+        .collect();
+
+    let average_items = if total_baskets > 0 {
+        total_items as f64 / total_baskets as f64
+    } else {
+        0.0
+    };
+
+    Ok(BasketSizeDistribution {
+        buckets,
+        total_transactions: total_baskets,
+        average_items,
+    })
+}
+
+#[server]
+pub async fn fetch_payment_analysis(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+) -> Result<PaymentAnalysis, ServerFnError> {
+    if end_date <= start_date {
+        return Err(not_found("End date must be after start date"));
+    }
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let rows = sqlx::query_as::<_, (Option<f64>, Option<f64>)>(
+        "SELECT paid_amount, change_amount FROM transactions
+         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?",
+    )
+    .bind(start_date)
+    .bind(end_date)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let edges: [(f64, f64, &str); 6] = [
+        (0.0, 0.0, "exact"),
+        (0.01, 1.0, "<1"),
+        (1.0, 5.0, "1-5"),
+        (5.0, 10.0, "5-10"),
+        (10.0, 20.0, "10-20"),
+        (20.0, f64::INFINITY, "20+"),
+    ];
+    let mut counts = [0i64; 6];
+    let mut total_paid = 0.0_f64;
+    let mut total_change = 0.0_f64;
+    let mut exact_count = 0i64;
+    let mut tx_count = 0i64;
+
+    for (paid, change) in rows {
+        let paid = paid.unwrap_or(0.0);
+        let change = change.unwrap_or(0.0);
+        total_paid += paid;
+        total_change += change;
+        tx_count += 1;
+        if change <= 0.001 {
+            exact_count += 1;
+        }
+        for (i, (lo, hi, _)) in edges.iter().enumerate() {
+            // First bucket is "exact" (change == 0); others are ranges.
+            if i == 0 {
+                if change <= 0.001 {
+                    counts[0] += 1;
+                    break;
+                }
+            } else if change >= *lo && (change < *hi || hi.is_infinite()) {
+                counts[i] += 1;
+                break;
+            }
+        }
+    }
+
+    let average_change = if tx_count > 0 {
+        total_change / tx_count as f64
+    } else {
+        0.0
+    };
+
+    let change_distribution: Vec<ChangeBucket> = edges
+        .iter()
+        .enumerate()
+        .map(|(i, (_, _, label))| ChangeBucket {
+            label: (*label).to_string(),
+            count: counts[i],
+        })
+        .collect();
+
+    Ok(PaymentAnalysis {
+        transaction_count: tx_count,
+        total_paid,
+        total_change,
+        average_change,
+        exact_payment_count: exact_count,
+        change_distribution,
+    })
+}
+
+#[server]
+pub async fn fetch_underperforming_items(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+    limit: i64,
+) -> Result<Vec<UnderperformingItem>, ServerFnError> {
+    if end_date <= start_date {
+        return Err(not_found("End date must be after start date"));
+    }
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let items = sqlx::query_as::<_, UnderperformingItem>(
+        "SELECT i.id as item_id, i.name as item_name,
+                COALESCE(c.name, '') as category_name,
+                i.price as price,
+                CAST(0 AS INTEGER) as quantity_sold,
+                CAST(0 AS REAL) as revenue,
+                i.created_at as created_at
+         FROM items i
+         LEFT JOIN categories c ON i.category_id = c.id
+         WHERE i.created_at < ?
+           AND i.id NOT IN (
+               SELECT DISTINCT ti.item_id FROM transaction_items ti
+               JOIN transactions t ON ti.transaction_id = t.id
+               WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+           )
+         ORDER BY i.created_at ASC, i.name ASC
+         LIMIT ?",
+    )
+    .bind(end_date)
+    .bind(start_date)
+    .bind(end_date)
+    .bind(limit)
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    Ok(items)
+}
+
+#[server]
 pub async fn export_report_csv(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,

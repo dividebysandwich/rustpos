@@ -111,6 +111,61 @@ pub struct ItemSalesTimeseries {
     pub bucket_unit: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RevenueBucket {
+    pub bucket_start: DateTime<Utc>,
+    pub label: String,
+    pub revenue: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RevenueTimeseries {
+    pub buckets: Vec<RevenueBucket>,
+    pub bucket_unit: String,
+    pub total_revenue: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasketSizeBucket {
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BasketSizeDistribution {
+    pub buckets: Vec<BasketSizeBucket>,
+    pub total_transactions: i64,
+    pub average_items: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangeBucket {
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentAnalysis {
+    pub transaction_count: i64,
+    pub total_paid: f64,
+    pub total_change: f64,
+    pub average_change: f64,
+    pub exact_payment_count: i64,
+    pub change_distribution: Vec<ChangeBucket>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct UnderperformingItem {
+    pub item_id: Uuid,
+    pub item_name: String,
+    pub category_name: String,
+    pub price: f64,
+    pub quantity_sold: i64,
+    pub revenue: f64,
+    pub created_at: DateTime<Utc>,
+}
+
 // User / Auth models
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
