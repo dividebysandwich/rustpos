@@ -113,6 +113,11 @@
   "admin.printer_passphrase_updated": "Neno la siri limesasishwa",
   "admin.printer_passphrase_cleared": "Neno la siri limefutwa",
   "admin.printer_passphrase_too_short": "Neno la siri lazima liwe angalau herufi 8",
+  "admin.printer_codepage": "Ukurasa wa msimbo wa printa",
+  "admin.printer_codepage_hint": "Jedwali la misimbo ya herufi ya ESC/POS (chaguomsingi 16 = Windows-1252). Badilisha tu ikiwa herufi zenye lafudhi zinachapishwa vibaya.",
+  "admin.printer_set_codepage": "Weka ukurasa wa msimbo",
+  "admin.printer_codepage_updated": "Ukurasa wa msimbo umesasishwa",
+  "admin.printer_codepage_invalid": "Ukurasa wa msimbo lazima uwe nambari kati ya 1 na 255",
 
   "items.title": "Bidhaa",
   "items.add_item": "Ongeza Bidhaa Mpya",

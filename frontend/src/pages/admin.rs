@@ -576,6 +576,7 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
     let (passphrase_set, set_passphrase_set) = signal(false);
     let (input_value, set_input_value) = signal(String::new());
     let (status_msg, set_status_msg) = signal(Option::<String>::None);
+    let (codepage_value, set_codepage_value) = signal(String::new());
 
     // Check if passphrase is currently configured
     Effect::new(move || {
@@ -585,6 +586,33 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
             }
         });
     });
+
+    // Load the configured printer code page
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(page) = get_printer_codepage().await {
+                set_codepage_value.set(page.to_string());
+            }
+        });
+    });
+
+    let submit_codepage = move |_| {
+        let page = codepage_value.get().trim().parse::<u8>().unwrap_or(0);
+        if page == 0 {
+            set_status_msg.set(Some(i18n.get().t("admin.printer_codepage_invalid")));
+            return;
+        }
+        leptos::task::spawn_local(async move {
+            match set_printer_codepage(page).await {
+                Ok(()) => {
+                    set_status_msg.set(Some(i18n.get().t("admin.printer_codepage_updated")));
+                }
+                Err(e) => {
+                    set_status_msg.set(Some(format!("{}", e)));
+                }
+            }
+        });
+    };
 
     let submit_passphrase = move |_| {
         let val = input_value.get().trim().to_string();
@@ -655,6 +683,25 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
                     {move || i18n.get().t("admin.printer_clear_passphrase")}
                 </button>
             </Show>
+
+            <div class="currency-custom" style="margin-top: 1.5rem;">
+                <label>{move || i18n.get().t("admin.printer_codepage")}</label>
+                <p style="margin: 0.25rem 0; color: #888; font-size: 0.85rem;">
+                    {move || i18n.get().t("admin.printer_codepage_hint")}
+                </p>
+                <div class="currency-custom-row">
+                    <input
+                        type="number"
+                        min="1"
+                        max="255"
+                        on:input=move |ev| set_codepage_value.set(event_target_value(&ev))
+                        prop:value=move || codepage_value.get()
+                    />
+                    <button class="btn-primary" on:click=submit_codepage>
+                        {move || i18n.get().t("admin.printer_set_codepage")}
+                    </button>
+                </div>
+            </div>
 
             <Show when=move || status_msg.get().is_some() fallback=|| ()>
                 <p style="margin-top: 0.5rem; color: #27ae60; font-weight: bold;">

@@ -1,5 +1,5 @@
 use futures_util::{SinkExt, StreamExt};
-use rustpos_common::printer::{find_printer, print_receipt};
+use rustpos_common::printer::{find_printer, print_receipt, set_codepage};
 use rustpos_common::protocol::*;
 use tokio_tungstenite::tungstenite::Message;
 
@@ -10,6 +10,9 @@ struct Config {
     /// Override the logo downloaded from the server with a local file
     logo_path: Option<String>,
     reconnect_delay_secs: Option<u64>,
+    /// ESC/POS printer code page (default 16 = WPC1252/Windows-1252).
+    /// Override only if umlauts/accents print wrong on your printer model.
+    codepage: Option<u8>,
 }
 
 #[tokio::main]
@@ -27,6 +30,10 @@ async fn main() {
         std::fs::read_to_string(&config_path).expect("Failed to read config file");
     let config: Config =
         toml::from_str(&config_str).expect("Failed to parse config file");
+
+    if let Some(page) = config.codepage {
+        set_codepage(page);
+    }
 
     let reconnect_delay = config.reconnect_delay_secs.unwrap_or(5);
     let ws_url = format!(

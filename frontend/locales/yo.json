@@ -113,6 +113,11 @@
   "admin.printer_passphrase_updated": "A ti ṣe ìmúdójúìwọ̀n ọ̀rọ̀ aṣínà",
   "admin.printer_passphrase_cleared": "A ti pa ọ̀rọ̀ aṣínà nù",
   "admin.printer_passphrase_too_short": "Ọ̀rọ̀ aṣínà gbọ́dọ̀ jẹ́ ó kéré tán àmì 8",
+  "admin.printer_codepage": "Ojú-ìwé kóòdù atẹ̀wé",
+  "admin.printer_codepage_hint": "Tábìlì kóòdù àmì ESC/POS (àpèsè 16 = Windows-1252). Yí padà kìkì tí àwọn àmì tó ní àkọ̀tún bá ń tẹ̀ jáde lọ́nà tí kò tọ́.",
+  "admin.printer_set_codepage": "Ṣètò ojú-ìwé kóòdù",
+  "admin.printer_codepage_updated": "Ojú-ìwé kóòdù ti ṣe àfikún",
+  "admin.printer_codepage_invalid": "Ojú-ìwé kóòdù gbọ́dọ̀ jẹ́ nọ́ńbà láàárín 1 sí 255",
 
   "items.title": "Àwọn Ohun",
   "items.add_item": "Fi Ohun Tuntun Kún",

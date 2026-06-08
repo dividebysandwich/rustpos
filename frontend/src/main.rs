@@ -162,6 +162,17 @@ async fn main() {
     .await
     .expect("Failed to create config table");
 
+    // Apply the configured ESC/POS printer code page (default 16 = WPC1252).
+    if let Ok(Some(value)) =
+        sqlx::query_scalar::<_, String>("SELECT value FROM config WHERE key = 'printer_codepage'")
+            .fetch_optional(&db)
+            .await
+    {
+        if let Ok(page) = value.parse::<u8>() {
+            rustpos::printer::set_codepage(page);
+        }
+    }
+
     // Create indexes
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)")
         .execute(&db)

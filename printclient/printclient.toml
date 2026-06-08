@@ -11,3 +11,9 @@ passphrase = "my-secret-printer-passphrase"
 
 # Optional: seconds to wait before reconnecting after disconnect (default: 5)
 # reconnect_delay_secs = 5
+
+# Optional: ESC/POS printer code page (default: 16 = WPC1252 / Windows-1252).
+# The default prints German umlauts and other Western European characters
+# correctly on most printers. Override only if your printer model numbers its
+# code pages differently and accented characters come out garbled.
+# codepage = 16

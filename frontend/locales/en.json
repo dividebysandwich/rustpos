@@ -113,6 +113,11 @@
   "admin.printer_passphrase_updated": "Passphrase updated",
   "admin.printer_passphrase_cleared": "Passphrase cleared",
   "admin.printer_passphrase_too_short": "Passphrase must be at least 8 characters",
+  "admin.printer_codepage": "Printer Code Page",
+  "admin.printer_codepage_hint": "ESC/POS character code table (default 16 = Windows-1252). Change only if accented characters print incorrectly.",
+  "admin.printer_set_codepage": "Set Code Page",
+  "admin.printer_codepage_updated": "Code page updated",
+  "admin.printer_codepage_invalid": "Code page must be a number between 1 and 255",
 
   "items.title": "Items",
   "items.add_item": "Add New Item",

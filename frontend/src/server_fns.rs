@@ -2017,3 +2017,37 @@ pub async fn clear_printer_passphrase() -> Result<(), ServerFnError> {
         .map_err(db_err)?;
     Ok(())
 }
+
+#[server]
+pub async fn get_printer_codepage() -> Result<u8, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let value: Option<String> =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_codepage'")
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?;
+    let page = value
+        .and_then(|v| v.parse::<u8>().ok())
+        .unwrap_or(crate::printer::DEFAULT_CODEPAGE);
+    Ok(page)
+}
+
+#[server]
+pub async fn set_printer_codepage(codepage: u8) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    if codepage == 0 {
+        return Err(not_found("Code page must be between 1 and 255"));
+    }
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('printer_codepage', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(codepage.to_string())
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    // Apply immediately so it takes effect without restarting the server.
+    crate::printer::set_codepage(codepage);
+    Ok(())
+}

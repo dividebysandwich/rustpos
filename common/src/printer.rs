@@ -1,12 +1,51 @@
+use std::sync::atomic::{AtomicU8, Ordering};
+
 use chrono::{DateTime, Local};
+use encoding::EncoderTrap;
 use glob::glob;
-use recibo::{Alignment, GraphicSize, Printer, FileDriver};
+use recibo::{Alignment, Encoder, GraphicSize, Printer, FileDriver};
+
+// ESC/POS "select character code table" page for Windows-1252 (WPC1252).
+// Thermal printers don't understand UTF-8: they map each byte through a
+// single-byte code page. We encode text as Windows-1252 (which contains the
+// German umlauts ä ö ü Ä Ö Ü ß) and tell the printer to interpret the bytes
+// the same way, otherwise multi-byte UTF-8 sequences print as garbage glyphs.
+//
+// 16 (WPC1252) is the default and works for the tested Munbyn ITPP098 and most
+// Epson-compatible printers. It can be overridden at startup via set_codepage()
+// for printers that number their code pages differently.
+pub const DEFAULT_CODEPAGE: u8 = 16;
+
+static CODEPAGE: AtomicU8 = AtomicU8::new(DEFAULT_CODEPAGE);
+
+/// Override the ESC/POS code page sent to the printer. Call once at startup
+/// (before printing) from whatever configuration source applies. A value of 0
+/// is treated as "unset" and leaves the default in place.
+pub fn set_codepage(page: u8) {
+    if page != 0 {
+        CODEPAGE.store(page, Ordering::Relaxed);
+    }
+}
+
+/// The ESC/POS code page currently in effect.
+pub fn codepage() -> u8 {
+    CODEPAGE.load(Ordering::Relaxed)
+}
 
 fn try_printer_on_port(path: &str) -> Result<Printer, Box<dyn std::error::Error>> {
     let driver = FileDriver::new(path)?;
-    let mut printer = Printer::open(driver)?;
+    let encoder = Encoder::new(encoding::all::WINDOWS_1252, EncoderTrap::Replace);
+    let mut printer = Printer::builder().driver(driver).encoder(encoder).build();
     printer.init()?;
+    select_codepage(&mut printer)?;
     Ok(printer)
+}
+
+// ESC t n — select the character code table on the printer. Must be re-sent
+// after every init() (ESC @), which resets the printer to its power-on code page.
+fn select_codepage(printer: &mut Printer) -> Result<(), Box<dyn std::error::Error>> {
+    printer.write(&[0x1B, 0x74, codepage()])?;
+    Ok(())
 }
 
 pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
@@ -57,6 +96,7 @@ pub fn print_credentials(
     pin: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
+    select_codepage(printer)?;
     printer.align(Alignment::Center)?;
     printer.bold(true)?;
     printer.text("================================\n")?;
@@ -85,6 +125,7 @@ pub fn print_receipt(
     logo_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
+    select_codepage(printer)?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
     if let Some(logo) = logo_path {
