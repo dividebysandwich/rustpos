@@ -14,6 +14,12 @@ struct Config {
 
 #[tokio::main]
 async fn main() {
+    // Multiple rustls crypto providers may be linked in (ring + aws-lc-rs),
+    // so the process-level default can't be auto-detected. Pick ring explicitly.
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
+
     let config_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "printclient.toml".into());
