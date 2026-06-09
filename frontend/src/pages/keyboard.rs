@@ -39,13 +39,13 @@ pub fn OnScreenKeyboard(
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
         vec!["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
         vec!["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-        vec!["z", "x", "c", "v", "b", "n", "m"],
+        vec!["z", "x", "c", "v", "b", "n", "m", "."],
     ];
     let rows_upper = vec![
         vec!["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"],
         vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         vec!["A", "S", "D", "F", "G", "H", "J", "K", "L"],
-        vec!["Z", "X", "C", "V", "B", "N", "M"],
+        vec!["Z", "X", "C", "V", "B", "N", "M", "."],
     ];
 
     view! {
@@ -53,8 +53,10 @@ pub fn OnScreenKeyboard(
             {move || {
                 let rows = if shift.get() { &rows_upper } else { &rows_lower };
                 rows.iter().enumerate().map(|(row_idx, row)| {
+                    // The home row (a s d f …) gets a half-key indent for a real-keyboard stagger
+                    let row_class = if row_idx == 2 { "osk-row osk-row-home" } else { "osk-row" };
                     view! {
-                        <div class="osk-row">
+                        <div class=row_class>
                             {if row_idx == 3 {
                                 let on_key_shift = on_key;
                                 Some(view! {
@@ -76,10 +78,10 @@ pub fn OnScreenKeyboard(
                                     </button>
                                 }
                             }).collect_view()}
-                            {if row_idx == 3 {
+                            {if row_idx == 1 {
                                 let on_key_bs = on_key;
                                 Some(view! {
-                                    <button class="osk-key osk-key-wide" on:click=move |_| on_key_bs("Backspace".into())>{move || i18n.get().t("keyboard.bksp")}</button>
+                                    <button class="osk-key osk-key-wide" on:click=move |_| on_key_bs("Backspace".into())>"←"</button>
                                 })
                             } else {
                                 None
@@ -90,11 +92,9 @@ pub fn OnScreenKeyboard(
             }}
             <div class="osk-row">
                 {
-                    let on_key_dot = on_key;
                     let on_key_space = on_key;
                     let on_key_enter = on_key;
                     view! {
-                        <button class="osk-key" on:click=move |_| on_key_dot(".".into())>"."</button>
                         <button class="osk-key osk-key-space" on:click=move |_| on_key_space("Space".into())>{move || i18n.get().t("keyboard.space")}</button>
                         <button class="osk-key osk-key-wide" on:click=move |_| on_key_enter("Enter".into())>{move || i18n.get().t("keyboard.enter")}</button>
                     }

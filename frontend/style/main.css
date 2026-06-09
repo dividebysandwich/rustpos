@@ -2542,17 +2542,26 @@ button:focus-visible {
     border-radius: var(--radius-md);
     padding: var(--space-sm);
     margin-bottom: var(--space-md);
+    /* Hug the keyboard and centre the whole block so rows align like a real keyboard */
+    width: fit-content;
+    max-width: 100%;
+    margin-inline: auto;
 }
 
 .osk-row {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 4px;
     margin-bottom: 4px;
 }
 
+/* Half-key indent on the home row for the classic keyboard stagger */
+.osk-row-home {
+    margin-left: 22px;
+}
+
 .osk-key {
-    min-width: 36px;
+    width: 40px;
     min-height: var(--touch-min);
     padding: var(--space-xs) var(--space-sm);
     background: var(--surface);
@@ -2562,7 +2571,7 @@ button:focus-visible {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.1s ease;
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     color: var(--text);
 }
 
