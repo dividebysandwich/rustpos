@@ -2,12 +2,39 @@ use leptos::prelude::*;
 
 use crate::i18n::I18n;
 
+// When the keyboard is shown it may render below the visible area on tall forms
+// (e.g. the item editor). Scroll it into view so it is always reachable.
+#[cfg(target_arch = "wasm32")]
+fn scroll_osk_into_view() {
+    use wasm_bindgen::prelude::*;
+    let cb = Closure::wrap(Box::new(move || {
+        if let Some(el) = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.query_selector(".osk").ok())
+            .flatten()
+        {
+            // align to bottom of viewport so the field being edited stays visible
+            el.scroll_into_view_with_bool(false);
+        }
+    }) as Box<dyn Fn()>);
+    let _ = web_sys::window()
+        .unwrap()
+        .request_animation_frame(cb.as_ref().unchecked_ref());
+    cb.forget();
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn scroll_osk_into_view() {}
+
 #[component]
 pub fn OnScreenKeyboard(
     on_key: impl Fn(String) + Copy + Send + 'static,
     shift: ReadSignal<bool>,
     i18n: RwSignal<I18n>,
 ) -> impl IntoView {
+    // Runs once when the keyboard mounts (i.e. when it becomes visible)
+    Effect::new(move |_| { scroll_osk_into_view(); });
+
     let rows_lower = vec![
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
         vec!["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
