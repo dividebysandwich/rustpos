@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
+use crate::pages::keyboard::OnScreenKeyboard;
 use crate::server_fns::*;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -90,6 +91,41 @@ pub fn ItemsPage() -> impl IntoView {
     let (stock_quantity, set_stock_quantity) = signal(String::new());
     let (kitchen_item, set_kitchen_item) = signal(false);
 
+    // On-screen keyboard target: "name", "description" or "sku" (hidden on mobile via CSS)
+    let (kb_target, set_kb_target) = signal(Option::<String>::None);
+    let (kb_shift, set_kb_shift) = signal(false);
+
+    let on_kb_key = move |key: String| {
+        let Some(target) = kb_target.get() else { return };
+        let numeric = target == "price";
+        let setter = match target.as_str() {
+            "name" => set_name,
+            "description" => set_description,
+            "sku" => set_sku,
+            "price" => set_price,
+            _ => return,
+        };
+        match key.as_str() {
+            "Backspace" => { setter.update(|s| { s.pop(); }); }
+            "Enter" => { set_kb_target.set(None); }
+            "Shift" => { set_kb_shift.update(|s| *s = !*s); }
+            "Space" => { if !numeric { setter.update(|s| s.push(' ')); } }
+            ch => {
+                if numeric {
+                    // Price accepts digits and a single decimal point only
+                    if ch.chars().all(|c| c.is_ascii_digit()) {
+                        setter.update(|s| s.push_str(ch));
+                    } else if ch == "." || ch == "," {
+                        setter.update(|s| if !s.contains('.') { s.push('.'); });
+                    }
+                } else {
+                    let ch = if kb_shift.get() { ch.to_uppercase() } else { ch.to_lowercase() };
+                    setter.update(|s| s.push_str(&ch));
+                }
+            }
+        }
+    };
+
     let (reload, set_reload) = signal(0u32);
 
     Effect::new(move || {
@@ -101,6 +137,7 @@ pub fn ItemsPage() -> impl IntoView {
     });
 
     let start_edit = move |item: Item| {
+        set_kb_target.set(None);
         set_name.set(item.name.clone());
         set_description.set(item.description.clone().unwrap_or_default());
         set_price.set(item.price.to_string());
@@ -180,6 +217,7 @@ pub fn ItemsPage() -> impl IntoView {
     };
     let cancel_delete = move |_| { set_deleting_item.set(None); };
     let cancel_edit = move |_| {
+        set_kb_target.set(None);
         set_editing_item.set(None); set_creating_item.set(false);
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new()); set_category_id.set(String::new());
@@ -188,6 +226,7 @@ pub fn ItemsPage() -> impl IntoView {
         set_stock_quantity.set(String::new()); set_kitchen_item.set(false);
     };
     let start_create = move |_| {
+        set_kb_target.set(None);
         set_name.set(String::new()); set_description.set(String::new());
         set_price.set(String::new());
         set_category_id.set(if let Some(cat) = categories.get().first() { cat.id.to_string() } else { String::new() });
@@ -239,11 +278,23 @@ pub fn ItemsPage() -> impl IntoView {
                     <div class="form-grid">
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.name")}</label>
-                            <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("name".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("items.price")}</label>
-                            <input type="number" step="0.01" value=move || price.get() on:input=move |ev| set_price.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" inputmode="decimal" value=move || price.get() on:input=move |ev| set_price.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("price".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("price".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("price".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("items.category")}</label>
@@ -255,11 +306,23 @@ pub fn ItemsPage() -> impl IntoView {
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("items.sku")}</label>
-                            <input type="text" value=move || sku.get() on:input=move |ev| set_sku.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" value=move || sku.get() on:input=move |ev| set_sku.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("sku".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("sku".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("sku".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.description")}</label>
-                            <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("description".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("description".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>
@@ -296,6 +359,9 @@ pub fn ItemsPage() -> impl IntoView {
                             </Show>
                         </div>
                     </div>
+                    <Show when=move || kb_target.get().is_some() fallback=|| ()>
+                        <OnScreenKeyboard on_key=on_kb_key shift=kb_shift i18n=i18n />
+                    </Show>
                     <div class="form-actions">
                         <button class="btn-success" on:click=save_item>{move || i18n.get().t("general.save")}</button>
                         <button class="btn-secondary" on:click=cancel_edit>{move || i18n.get().t("general.cancel")}</button>

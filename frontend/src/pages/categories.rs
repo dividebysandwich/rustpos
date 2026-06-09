@@ -3,6 +3,7 @@ use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
+use crate::pages::keyboard::OnScreenKeyboard;
 use crate::server_fns::*;
 
 #[component]
@@ -29,6 +30,29 @@ pub fn CategoriesPage() -> impl IntoView {
     let (name, set_name) = signal(String::new());
     let (description, set_description) = signal(String::new());
 
+    // On-screen keyboard target: "name" or "description" (hidden on mobile via CSS)
+    let (kb_target, set_kb_target) = signal(Option::<String>::None);
+    let (kb_shift, set_kb_shift) = signal(false);
+
+    let on_kb_key = move |key: String| {
+        let Some(target) = kb_target.get() else { return };
+        let setter = match target.as_str() {
+            "name" => set_name,
+            "description" => set_description,
+            _ => return,
+        };
+        match key.as_str() {
+            "Backspace" => { setter.update(|s| { s.pop(); }); }
+            "Enter" => { set_kb_target.set(None); }
+            "Shift" => { set_kb_shift.update(|s| *s = !*s); }
+            "Space" => { setter.update(|s| s.push(' ')); }
+            ch => {
+                let ch = if kb_shift.get() { ch.to_uppercase() } else { ch.to_lowercase() };
+                setter.update(|s| s.push_str(&ch));
+            }
+        }
+    };
+
     // Trigger signal: incrementing this causes the Effect to re-run
     let (reload, set_reload) = signal(0u32);
 
@@ -40,6 +64,7 @@ pub fn CategoriesPage() -> impl IntoView {
     });
 
     let start_edit = move |category: Category| {
+        set_kb_target.set(None);
         set_name.set(category.name.clone());
         set_description.set(category.description.clone().unwrap_or_default());
         set_editing_category.set(Some(category));
@@ -83,10 +108,12 @@ pub fn CategoriesPage() -> impl IntoView {
     };
     let cancel_delete = move |_| { set_deleting_category.set(None); };
     let cancel_edit = move |_| {
+        set_kb_target.set(None);
         set_editing_category.set(None); set_creating_category.set(false);
         set_name.set(String::new()); set_description.set(String::new());
     };
     let start_create = move |_| {
+        set_kb_target.set(None);
         set_name.set(String::new()); set_description.set(String::new());
         set_creating_category.set(true); set_editing_category.set(None);
     };
@@ -129,13 +156,28 @@ pub fn CategoriesPage() -> impl IntoView {
                     <div class="form-grid">
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.name")}</label>
-                            <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("name".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.description")}</label>
-                            <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
+                            <div class="admin-input-row">
+                                <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
+                                <button class="btn-secondary-small" type="button" on:click=move |_| {
+                                    if kb_target.get() == Some("description".into()) { set_kb_target.set(None); }
+                                    else { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
+                                }>{move || if kb_target.get() == Some("description".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                            </div>
                         </div>
                     </div>
+                    <Show when=move || kb_target.get().is_some() fallback=|| ()>
+                        <OnScreenKeyboard on_key=on_kb_key shift=kb_shift i18n=i18n />
+                    </Show>
                     <div class="form-actions">
                         <button class="btn-success" on:click=save_category>{move || i18n.get().t("general.save")}</button>
                         <button class="btn-secondary" on:click=cancel_edit>{move || i18n.get().t("general.cancel")}</button>

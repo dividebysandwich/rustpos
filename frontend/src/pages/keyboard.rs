@@ -63,9 +63,11 @@ pub fn OnScreenKeyboard(
             }}
             <div class="osk-row">
                 {
+                    let on_key_dot = on_key;
                     let on_key_space = on_key;
                     let on_key_enter = on_key;
                     view! {
+                        <button class="osk-key" on:click=move |_| on_key_dot(".".into())>"."</button>
                         <button class="osk-key osk-key-space" on:click=move |_| on_key_space("Space".into())>{move || i18n.get().t("keyboard.space")}</button>
                         <button class="osk-key osk-key-wide" on:click=move |_| on_key_enter("Enter".into())>{move || i18n.get().t("keyboard.enter")}</button>
                     }
