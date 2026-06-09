@@ -509,6 +509,9 @@ pub fn AdminPage() -> impl IntoView {
         // Remote printer passphrase setting
         <PrinterPassphraseSettings i18n=i18n />
 
+        // System network information
+        <SystemInfoSettings i18n=i18n />
+
         </Show>
     }
 }
@@ -707,6 +710,49 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
                 <p style="margin-top: 0.5rem; color: #27ae60; font-weight: bold;">
                     {move || status_msg.get().unwrap_or_default()}
                 </p>
+            </Show>
+        </div>
+    }
+}
+
+#[component]
+fn SystemInfoSettings(i18n: RwSignal<I18n>) -> impl IntoView {
+    let (addresses, set_addresses) = signal(Vec::<String>::new());
+    let (loaded, set_loaded) = signal(false);
+
+    // Load the system's network addresses on mount
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(addrs) = get_system_ip_addresses().await {
+                set_addresses.set(addrs);
+            }
+            set_loaded.set(true);
+        });
+    });
+
+    view! {
+        <div class="admin-page" style="margin-top: 2rem;">
+            <h2>{move || i18n.get().t("admin.system_info")}</h2>
+            <p style="margin: 0.25rem 0; color: #888; font-size: 0.85rem;">
+                {move || i18n.get().t("admin.system_ip_hint")}
+            </p>
+            <Show
+                when=move || !addresses.get().is_empty()
+                fallback=move || view! {
+                    <p style="color: #888;">
+                        {move || if loaded.get() {
+                            i18n.get().t("admin.system_ip_none")
+                        } else {
+                            i18n.get().t("admin.system_ip_loading")
+                        }}
+                    </p>
+                }
+            >
+                <ul style="list-style: none; padding: 0; margin: 0.5rem 0;">
+                    {move || addresses.get().into_iter().map(|addr| view! {
+                        <li style="font-family: monospace; padding: 0.25rem 0;">{addr}</li>
+                    }).collect_view()}
+                </ul>
             </Show>
         </div>
     }

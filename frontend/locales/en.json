@@ -118,6 +118,10 @@
   "admin.printer_set_codepage": "Set Code Page",
   "admin.printer_codepage_updated": "Code page updated",
   "admin.printer_codepage_invalid": "Code page must be a number between 1 and 255",
+  "admin.system_info": "System Information",
+  "admin.system_ip_hint": "Network addresses this server can be reached at. Use these to point remote print clients and other devices at this server.",
+  "admin.system_ip_loading": "Loading…",
+  "admin.system_ip_none": "No network addresses found.",
 
   "items.title": "Items",
   "items.add_item": "Add New Item",

@@ -118,6 +118,10 @@
   "admin.printer_set_codepage": "Weka ukurasa wa msimbo",
   "admin.printer_codepage_updated": "Ukurasa wa msimbo umesasishwa",
   "admin.printer_codepage_invalid": "Ukurasa wa msimbo lazima uwe nambari kati ya 1 na 255",
+  "admin.system_info": "Maelezo ya mfumo",
+  "admin.system_ip_hint": "Anwani za mtandao ambazo seva hii inaweza kufikiwa. Zitumie kuelekeza wateja wa kuchapisha wa mbali na vifaa vingine kwenye seva hii.",
+  "admin.system_ip_loading": "Inapakia…",
+  "admin.system_ip_none": "Hakuna anwani za mtandao zilizopatikana.",
 
   "items.title": "Bidhaa",
   "items.add_item": "Ongeza Bidhaa Mpya",

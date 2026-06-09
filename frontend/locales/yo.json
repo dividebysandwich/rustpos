@@ -118,6 +118,10 @@
   "admin.printer_set_codepage": "Ṣètò ojú-ìwé kóòdù",
   "admin.printer_codepage_updated": "Ojú-ìwé kóòdù ti ṣe àfikún",
   "admin.printer_codepage_invalid": "Ojú-ìwé kóòdù gbọ́dọ̀ jẹ́ nọ́ńbà láàárín 1 sí 255",
+  "admin.system_info": "Ìsọfúnni ẹ̀rọ",
+  "admin.system_ip_hint": "Àwọn àdírẹ́sì nẹ́tíwọ̀kì tí a lè dé sí sáfà yìí. Lò wọ́n láti tọ́ka àwọn oníbàárà ìtẹ̀wé jíjìnnà àti àwọn ẹ̀rọ mìíràn sí sáfà yìí.",
+  "admin.system_ip_loading": "Ń gbé wọlé…",
+  "admin.system_ip_none": "Kò sí àdírẹ́sì nẹ́tíwọ̀kì tí a rí.",
 
   "items.title": "Àwọn Ohun",
   "items.add_item": "Fi Ohun Tuntun Kún",

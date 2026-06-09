@@ -2051,3 +2051,25 @@ pub async fn set_printer_codepage(codepage: u8) -> Result<(), ServerFnError> {
     crate::printer::set_codepage(codepage);
     Ok(())
 }
+
+/// Returns the system's network addresses as "ip (interface)" strings,
+/// loopback excluded, IPv4 listed before IPv6. Useful for pointing remote
+/// print clients and other devices at this server.
+#[server]
+pub async fn get_system_ip_addresses() -> Result<Vec<String>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    let mut addrs: Vec<(bool, String)> = if_addrs::get_if_addrs()
+        .map_err(db_err)?
+        .into_iter()
+        .filter(|iface| !iface.is_loopback())
+        .map(|iface| {
+            let ip = iface.ip();
+            (ip.is_ipv6(), format!("{} ({})", ip, iface.name))
+        })
+        .collect();
+    // IPv4 first (is_ipv6 == false), then by string for stable ordering.
+    addrs.sort();
+    Ok(addrs.into_iter().map(|(_, s)| s).collect())
+}

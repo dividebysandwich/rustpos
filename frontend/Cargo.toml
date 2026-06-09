@@ -29,6 +29,7 @@ rustpos-common = { path = "../common", optional = true }
 base64 = { version = "0.22", optional = true }
 rand = { version = "0.8", optional = true }
 sha2 = { version = "0.11", optional = true }
+if-addrs = { version = "0.13", optional = true }
 
 # Hydrate dependencies
 wasm-bindgen = { version = "0.2.120", optional = true }
@@ -67,6 +68,7 @@ ssr = [
     "dep:base64",
     "dep:rand",
     "dep:sha2",
+    "dep:if-addrs",
     "uuid/v4",
 ]
 
