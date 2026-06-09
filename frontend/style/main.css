@@ -2781,6 +2781,36 @@ button:focus-visible {
     font-family: 'DotMatrix', 'Consolas', 'Courier New', monospace;
 }
 
+/* Screensaver shown when no transaction is active: bouncing logo */
+.screensaver {
+    position: relative;
+    flex: 1;
+    overflow: hidden;
+    background: var(--vfd-bg);
+}
+
+.screensaver-logo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 240px;
+    height: 240px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 14px var(--vfd-glow));
+    animation: ss-bounce-x 29s linear infinite alternate,
+               ss-bounce-y 18s linear infinite alternate;
+}
+
+@keyframes ss-bounce-x {
+    from { left: 0; }
+    to   { left: calc(100% - 240px); }
+}
+
+@keyframes ss-bounce-y {
+    from { top: 0; }
+    to   { top: calc(100% - 240px); }
+}
+
 .display-items {
     flex: 1;
     overflow-y: auto;

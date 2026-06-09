@@ -159,7 +159,14 @@ pub fn DisplayPage() -> impl IntoView {
 
     view! {
         <div class="display-page">
-            <Show when=move || active.get() fallback=|| ()>
+            <Show
+                when=move || active.get()
+                fallback=|| view! {
+                    <div class="screensaver">
+                        <img class="screensaver-logo" src="/logo_site.png" alt="" />
+                    </div>
+                }
+            >
                 <div class="display-items">
                     <For each=move || items.get() key=|item| (item.id, item.quantity) let:item>
                         <div class="display-item-row">
