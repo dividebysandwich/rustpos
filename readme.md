@@ -10,7 +10,9 @@ This is a simple implementation using modern technologies. It was born out of my
 > This project is a functional proof of concept and not certified to be used in a production environment.
 > It also may not meet the requirements of your fiscal authorities. Please check your local laws and regulations before using this software to perform sales.
 
-<img width="994" height="915" alt="image" src="https://github.com/user-attachments/assets/4f5e2971-cb09-482e-a3dc-591ee162f7f0" />
+<img width="1438" height="1295" alt="image" src="https://github.com/user-attachments/assets/15837c97-2362-47d7-902a-27a713084c66" />
+
+<img width="1471" height="1299" alt="image" src="https://github.com/user-attachments/assets/57b60bc3-4ae0-485b-a466-ec328a12ffa1" />
 
 
 ## Features
@@ -203,8 +205,3 @@ Any OS capable of running a web browser should be able to run RustPOS as a clien
 You may need to modify config.kdl to fit your display device names and screen resolutions. Use ```niri msg outputs``` to show a list of display devices, their device names, and their resolution. Remember to configure the ```position``` x-offset of one of the displays to shift it to the right of the other display. Or you can also shift it above or however you like.
 
 Depending on your linux distribution, you may have to update ```/usr/lib/systemd/system/rustpos.service``` and change ```SupplementaryGroups``` to ```lp``` (Arch linux) instead of ```uucp``` (Ubuntu). If the logs show issues accessing the serial device of the printer, this is the cause.
-
-<img width="1438" height="1295" alt="image" src="https://github.com/user-attachments/assets/15837c97-2362-47d7-902a-27a713084c66" />
-
-<img width="1471" height="1299" alt="image" src="https://github.com/user-attachments/assets/57b60bc3-4ae0-485b-a466-ec328a12ffa1" />
-
