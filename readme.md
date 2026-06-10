@@ -195,3 +195,12 @@ You can copy that directory anywhere you want for a more permanent installation.
 cd rustpos
 ./rustpos
 ```
+
+### Deployment on POS Hardware
+
+Any OS capable of running a web browser should be able to run RustPOS as a client. However, the preferred deployment is using linux for robustness and customizability. Install the distribution of your choice, wayland, librewolf, and as compositor we recommmend [Niri](https://github.com/niri-wm/niri). A sample configuration file is provided in ```niri/config.kdl```, which will set up a clean desktop and launch two instances of the Librewolf browser, one for the cashier UI and one for the customer display. This has been tested on POS hardware by Scangle using Arch Linux.
+
+You may need to modify config.kdl to fit your display device names and screen resolutions. Use ```niri msg outputs``` to show a list of display devices, their device names, and their resolution. Remember to configure the ```position``` x-offset of one of the displays to shift it to the right of the other display. Or you can also shift it above or however you like.
+
+Depending on your linux distribution, you may have to update ```/usr/lib/systemd/system/rustpos.service``` and change ```SupplementaryGroups``` to ```lp``` (Arch linux) instead of ```uucp``` (Ubuntu). If the logs show issues accessing the serial device of the printer, this is the cause.
+

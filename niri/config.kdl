@@ -1,0 +1,151 @@
+// ~/.config/niri/config.kdl
+// Two-screen Rustpos kiosk (Niri + Wayland + Librewolf).
+// KDL format: https://kdl.dev   Docs: https://niri-wm.github.io/niri/
+//
+// SETUP CHECKLIST (do these once):
+//   1. Install a terminal so the Mod+T bind works, e.g.:  pacman -S alacritty
+//      (or change "alacritty" below to "foot"/"kitty"/whatever you install)
+//   2. Run `niri msg outputs` and replace the output names + positions below.
+//   3. First boot will open the Librewolf profile-picker only if the profile
+//      dir is missing; --profile creates it automatically, so that's fine.
+//   4. In each Librewolf profile, turn OFF "Delete cookies and site data when
+//      LibreWolf is closed" (Settings -> Privacy) or your Rustpos login won't
+//      survive a reboot. Add rustpos.hoxdna.org as an exception.
+//   5. `niri validate` checks this file for errors before you rely on it.
+
+// ── Environment ──────────────────────────────────────────────────────────
+// Force native Wayland for Gecko (usually automatic, but explicit is safe).
+environment {
+    MOZ_ENABLE_WAYLAND "1"
+}
+
+// ── Input ────────────────────────────────────────────────────────────────
+input {
+    keyboard {
+        xkb {
+            // Empty = niri uses the system keymap (localectl / org.freedesktop.locale1).
+            // To pin it explicitly, uncomment one, e.g. Austrian or US:
+            // layout "at"
+            // layout "us"
+        }
+        numlock
+    }
+    touchpad {
+        tap
+        natural-scroll
+    }
+    mouse {}
+}
+
+// ── Outputs ──────────────────────────────────────────────────────────────
+// Replace DP-1 / eDP-1 with the real names from `niri msg outputs`.
+// `mode` is optional — if omitted or wrong, niri auto-picks the best mode.
+// `position` decides which screen is physically left/right (used by the
+// focus-monitor binds). Adjust the x offset to match the left screen's width.
+
+output "eDP-1" {        // Cashier display
+    mode "1920x1080@60"
+    position x=0 y=0
+    scale 1
+}
+
+output "DP-1" {            // Customer display
+    mode "1280x800@60"
+    position x=1920 y=0
+    scale 1
+}
+
+// ── Layout ───────────────────────────────────────────────────────────────
+layout {
+    gaps 0                 // no gaps; the kiosk window fills the screen
+    focus-ring { off; }     // no highlight border around the active window
+    border { off; }
+}
+
+// ── Startup: the two browser instances ─────────────────────────────────────
+// Separate --profile dirs  -> two independent processes (so each --name sticks)
+// --name <id>              -> sets the Wayland app-id niri matches on below
+// --kiosk                  -> fullscreen, no tabs/toolbar/URL bar
+// spawn-sh-at-startup runs via sh, so ~ expands to the home directory.
+spawn-sh-at-startup "mkdir -p ~/.librewolf-cashier; librewolf --no-remote --kiosk --profile ~/.librewolf-cashier  --name pos-cashier  http://127.0.0.1:3000/"
+spawn-sh-at-startup "mkdir -p ~/.librewolf-customer; librewolf --no-remote --kiosk --profile ~/.librewolf-customer --name pos-customer http://127.0.0.1:3000/display"
+
+// ── Pin each window to its display on startup ──────────────────────────────
+// Verify the app-ids after first boot with `niri msg windows`. If you see
+// "librewolf" for both instead of pos-cashier/pos-customer, the --name didn't
+// take and these rules won't split the windows.
+window-rule {
+    match at-startup=true app-id="^pos-cashier$"
+    open-on-output "eDP-1"
+}
+window-rule {
+    match at-startup=true app-id="^pos-customer$"
+    open-on-output "DP-1"
+}
+
+// ── Misc ───────────────────────────────────────────────────────────────────
+hotkey-overlay {
+    skip-at-startup        // don't pop the "Important Hotkeys" overlay on boot
+}
+
+cursor {
+    hide-after-inactive-ms 3000   // hide the idle pointer (nice on the customer screen)
+}
+
+// ── Key bindings ───────────────────────────────────────────────────────────
+// "Mod" = Super on a TTY. binds do NOT inherit defaults, so this block is the
+// complete set. Keep the escape hatches (Mod+Escape, Mod+Shift+E) while testing.
+binds {
+    Mod+Shift+Slash { show-hotkey-overlay; }
+
+    // Launchers — needs a terminal installed (see checklist).
+    Mod+T { spawn "alacritty"; }
+    Mod+D { spawn "fuzzel"; }            // optional app launcher; remove if not installed
+
+    Mod+Q repeat=false { close-window; }
+
+    // Focus windows / columns
+    Mod+Left  { focus-column-left; }
+    Mod+Right { focus-column-right; }
+    Mod+Up    { focus-window-up; }
+    Mod+Down  { focus-window-down; }
+    Mod+H     { focus-column-left; }
+    Mod+L     { focus-column-right; }
+    Mod+K     { focus-window-up; }
+    Mod+J     { focus-window-down; }
+
+    // Move a column around
+    Mod+Ctrl+Left  { move-column-left; }
+    Mod+Ctrl+Right { move-column-right; }
+    Mod+Ctrl+Up    { move-window-up; }
+    Mod+Ctrl+Down  { move-window-down; }
+
+    // Jump focus between the two monitors
+    Mod+Shift+Left  { focus-monitor-left; }
+    Mod+Shift+Right { focus-monitor-right; }
+
+    // Throw the focused column onto the other monitor
+    Mod+Shift+Ctrl+Left  { move-column-to-monitor-left; }
+    Mod+Shift+Ctrl+Right { move-column-to-monitor-right; }
+
+    // Sizing
+    Mod+F       { maximize-column; }
+    Mod+Shift+F { fullscreen-window; }
+    Mod+M       { maximize-window-to-edges; }
+
+    Print { screenshot; }
+
+    // Escape hatch: if a fullscreen kiosk app grabs all shortcuts, this still
+    // works (allow-inhibiting=false) and toggles the inhibitor back off.
+    Mod+Escape allow-inhibiting=false { toggle-keyboard-shortcuts-inhibit; }
+
+    // Quit niri (shows a confirmation dialog).
+    Mod+Shift+E { quit; }
+    Ctrl+Alt+Delete { quit; }
+
+    // Blank the displays; any input wakes them.
+    Mod+Shift+P { power-off-monitors; }
+    
+    XF86PowerOff { spawn "systemctl" "poweroff"; }
+    
+}
