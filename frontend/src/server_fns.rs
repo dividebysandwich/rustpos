@@ -875,20 +875,22 @@ pub async fn close_transaction(
             let _ = printer_tx.send(job);
         }
 
-        // Local print
-        let _ = tokio::task::spawn_blocking(move || {
-            if let Ok((_, mut printer)) = find_printer() {
-                let _ = print_receipt(
-                    &mut printer,
-                    receipt_items,
-                    paid_amount as f32,
-                    change as f32,
-                    local_now,
-                    Some("data/logo_receipt.png"),
-                );
-            }
-        })
-        .await;
+        // Local print (unless disabled in settings — e.g. printing handled by a remote client)
+        if !read_disable_local_printing(&pool).await {
+            let _ = tokio::task::spawn_blocking(move || {
+                if let Ok((_, mut printer)) = find_printer() {
+                    let _ = print_receipt(
+                        &mut printer,
+                        receipt_items,
+                        paid_amount as f32,
+                        change as f32,
+                        local_now,
+                        Some("data/logo_receipt.png"),
+                    );
+                }
+            })
+            .await;
+        }
     }
 
     // Notify kitchen displays via WebSocket
@@ -2049,6 +2051,96 @@ pub async fn set_printer_codepage(codepage: u8) -> Result<(), ServerFnError> {
     .map_err(db_err)?;
     // Apply immediately so it takes effect without restarting the server.
     crate::printer::set_codepage(codepage);
+    Ok(())
+}
+
+/// Reads the "disable local receipt printing" flag (default: false / enabled).
+/// No auth check — used internally at checkout time.
+#[cfg(feature = "ssr")]
+async fn read_disable_local_printing(pool: &sqlx::SqlitePool) -> bool {
+    sqlx::query_scalar::<_, String>("SELECT value FROM config WHERE key = 'disable_local_printing'")
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .map(|v| v == "true")
+        .unwrap_or(false)
+}
+
+#[server]
+pub async fn get_disable_local_printing() -> Result<bool, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    Ok(read_disable_local_printing(&pool).await)
+}
+
+#[server]
+pub async fn set_disable_local_printing(disabled: bool) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    sqlx::query(
+        "INSERT INTO config (key, value) VALUES ('disable_local_printing', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    )
+    .bind(if disabled { "true" } else { "false" })
+    .execute(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(())
+}
+
+/// Print a sales breakdown for the given period on the local printer:
+/// per-item quantity sold and total sale value, plus period totals.
+#[server]
+pub async fn print_sales_report(
+    start_date: DateTime<Utc>,
+    end_date: DateTime<Utc>,
+) -> Result<(), ServerFnError> {
+    use crate::printer::{find_printer, print_sales_report as print_sr};
+
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    let report = generate_sales_report_db(&pool, start_date, end_date).await?;
+    let currency: String =
+        sqlx::query_scalar("SELECT value FROM config WHERE key = 'currency'")
+            .fetch_optional(&pool)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default();
+
+    let items: Vec<(String, u32, f32)> = report
+        .items
+        .iter()
+        .map(|i| (i.item_name.clone(), i.quantity_sold as u32, i.total_revenue as f32))
+        .collect();
+    let total_items_sold = report.summary.total_items_sold as u32;
+    let total_revenue = report.summary.total_revenue as f32;
+    let period = format!(
+        "{} to {}",
+        start_date.format("%Y-%m-%d"),
+        end_date.format("%Y-%m-%d")
+    );
+    let now = chrono::Local::now();
+
+    let result: Result<(), String> = tokio::task::spawn_blocking(move || {
+        let (_, mut printer) = find_printer().map_err(|e| e.to_string())?;
+        print_sr(
+            &mut printer,
+            &period,
+            &currency,
+            items,
+            total_items_sold,
+            total_revenue,
+            now,
+            Some("data/logo_receipt.png"),
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?;
+
+    result.map_err(ServerFnError::new)?;
     Ok(())
 }
 

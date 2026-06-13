@@ -1,6 +1,6 @@
 [package]
 name = "rustpos"
-version = "1.3.2"
+version = "1.3.3"
 edition = "2024"
 
 [lib]
@@ -32,7 +32,8 @@ sha2 = { version = "0.11", optional = true }
 if-addrs = { version = "0.13", optional = true }
 
 # Hydrate dependencies
-wasm-bindgen = { version = "0.2.120", optional = true }
+# Pinned exactly: the generated JS bindings must match the wasm-bindgen CLI version.
+wasm-bindgen = { version = "=0.2.122", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 web-sys = { version = "0.3.97", optional = true, features = [
     "File", "FileList", "FileReader", "HtmlInputElement", "HtmlCanvasElement",

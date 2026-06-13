@@ -517,6 +517,7 @@ pub fn ReportsPage() -> impl IntoView {
     let (end_date, set_end_date) = signal(String::new());
     let (loading, set_loading) = signal(false);
     let (error, set_error) = signal(Option::<String>::None);
+    let (print_msg, set_print_msg) = signal(Option::<String>::None);
 
     Effect::new(move || {
         let today = Utc::now();
@@ -634,17 +635,35 @@ pub fn ReportsPage() -> impl IntoView {
             </div>
 
             <Show when=move || report.get().is_some() && !loading.get() fallback=|| ()>
-                <button class="btn-primary" style="margin-bottom: 1rem;" on:click=move |_| {
-                    if let Some(r) = report.get() {
-                        let sd = r.start_date;
-                        let ed = r.end_date;
-                        leptos::task::spawn_local(async move {
-                            if let Ok(csv) = export_report_csv(sd, ed).await {
-                                trigger_csv_download(&csv, "sales_report.csv");
-                            }
-                        });
-                    }
-                }>{move || i18n.get().t("reports.export_csv")}</button>
+                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <button class="btn-primary" on:click=move |_| {
+                        if let Some(r) = report.get() {
+                            let sd = r.start_date;
+                            let ed = r.end_date;
+                            leptos::task::spawn_local(async move {
+                                if let Ok(csv) = export_report_csv(sd, ed).await {
+                                    trigger_csv_download(&csv, "sales_report.csv");
+                                }
+                            });
+                        }
+                    }>{move || i18n.get().t("reports.export_csv")}</button>
+                    <button class="btn-primary" on:click=move |_| {
+                        if let Some(r) = report.get() {
+                            let sd = r.start_date;
+                            let ed = r.end_date;
+                            set_print_msg.set(None);
+                            leptos::task::spawn_local(async move {
+                                match print_sales_report(sd, ed).await {
+                                    Ok(()) => set_print_msg.set(Some(i18n.get_untracked().t("reports.print_sent"))),
+                                    Err(e) => set_print_msg.set(Some(format!("{}", e))),
+                                }
+                            });
+                        }
+                    }>{move || i18n.get().t("reports.print_breakdown")}</button>
+                    <Show when=move || print_msg.get().is_some() fallback=|| ()>
+                        <span style="color: #555;">{move || print_msg.get().unwrap_or_default()}</span>
+                    </Show>
+                </div>
             </Show>
 
             <Show when=move || loading.get() fallback=|| ()>

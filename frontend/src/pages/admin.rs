@@ -580,6 +580,7 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
     let (input_value, set_input_value) = signal(String::new());
     let (status_msg, set_status_msg) = signal(Option::<String>::None);
     let (codepage_value, set_codepage_value) = signal(String::new());
+    let (disable_printing, set_disable_printing) = signal(false);
 
     // Check if passphrase is currently configured
     Effect::new(move || {
@@ -589,6 +590,23 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
             }
         });
     });
+
+    // Load the "disable local receipt printing" setting
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(disabled) = get_disable_local_printing().await {
+                set_disable_printing.set(disabled);
+            }
+        });
+    });
+
+    let toggle_disable_printing = move |ev| {
+        let disabled = event_target_checked(&ev);
+        set_disable_printing.set(disabled);
+        leptos::task::spawn_local(async move {
+            let _ = set_disable_local_printing(disabled).await;
+        });
+    };
 
     // Load the configured printer code page
     Effect::new(move || {
@@ -704,6 +722,19 @@ fn PrinterPassphraseSettings(i18n: RwSignal<I18n>) -> impl IntoView {
                         {move || i18n.get().t("admin.printer_set_codepage")}
                     </button>
                 </div>
+            </div>
+
+            <div class="currency-custom" style="margin-top: 1.5rem;">
+                <label>
+                    <input type="checkbox"
+                        prop:checked=move || disable_printing.get()
+                        on:change=toggle_disable_printing
+                    />
+                    " " {move || i18n.get().t("admin.disable_local_printing")}
+                </label>
+                <p style="margin: 0.25rem 0; color: #888; font-size: 0.85rem;">
+                    {move || i18n.get().t("admin.disable_local_printing_hint")}
+                </p>
             </div>
 
             <Show when=move || status_msg.get().is_some() fallback=|| ()>

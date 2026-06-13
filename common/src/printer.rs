@@ -116,6 +116,65 @@ pub fn print_credentials(
     Ok(())
 }
 
+/// Truncate to `width` characters (char-safe) and left-pad to that width.
+fn fit_left(text: &str, width: usize) -> String {
+    let s: String = text.chars().take(width).collect();
+    format!("{:<width$}", s, width = width)
+}
+
+/// Print a sales breakdown for a period: per-item quantity sold and total value.
+pub fn print_sales_report(
+    printer: &mut Printer,
+    period: &str,
+    currency: &str,
+    items: Vec<(String, u32, f32)>,
+    total_items_sold: u32,
+    total_revenue: f32,
+    datetime: DateTime<Local>,
+    logo_path: Option<&str>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    printer.init()?;
+    select_codepage(printer)?;
+    printer.align(Alignment::Center)?;
+    printer.linespacing(1)?;
+    if let Some(logo) = logo_path {
+        let logo_owned = logo.to_string();
+        printer.graphic(move |builder| {
+            builder.path(&logo_owned).size(GraphicSize::Normal)
+        })?;
+    }
+    printer.bold(true)?;
+    printer.text("Sales Report\n")?;
+    printer.bold(false)?;
+    printer.text(&format!("{}\n", period))?;
+    printer.text("------------------------------------------------\n")?;
+
+    printer.align(Alignment::Left)?;
+    // Columns: name (26) | qty (6) | total (16) = 48 chars
+    printer.text(&format!("{}{:>6}{:>16}\n", fit_left("Item", 26), "Qty", "Total"))?;
+    printer.text("------------------------------------------------\n")?;
+    for (name, qty, revenue) in &items {
+        let line = format!("{}{:>6}{:>16.2}\n", fit_left(name, 26), qty, revenue);
+        printer.text(&line)?;
+    }
+
+    printer.align(Alignment::Center)?;
+    printer.text("------------------------------------------------\n")?;
+    printer.align(Alignment::Left)?;
+    printer.bold(true)?;
+    printer.text(&format!("Items sold: {}\n", total_items_sold))?;
+    printer.text(&format!("TOTAL {}: {:.2}\n", currency, total_revenue))?;
+    printer.bold(false)?;
+    printer.feed(1)?;
+    printer.text(&format!(
+        "Printed: {}\n",
+        datetime.format("%Y-%m-%d %H:%M:%S")
+    ))?;
+    printer.feed(6)?;
+    printer.cut()?;
+    Ok(())
+}
+
 pub fn print_receipt(
     printer: &mut Printer,
     items: Vec<(String, u32, f32)>,
