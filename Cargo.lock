@@ -2635,7 +2635,7 @@ dependencies = [
 
 [[package]]
 name = "rustpos"
-version = "1.3.3"
+version = "1.3.4"
 dependencies = [
  "axum",
  "base64",
@@ -2666,7 +2666,7 @@ dependencies = [
 
 [[package]]
 name = "rustpos-common"
-version = "1.3.3"
+version = "1.3.4"
 dependencies = [
  "base64",
  "chrono",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "rustpos-printclient"
-version = "1.3.3"
+version = "1.3.4"
 dependencies = [
  "base64",
  "chrono",

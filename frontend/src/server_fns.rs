@@ -759,7 +759,7 @@ pub async fn close_transaction(
     id: Uuid,
     paid_amount: f64,
 ) -> Result<CloseTransactionResponse, ServerFnError> {
-    use crate::printer::{find_printer, print_receipt};
+    use crate::printer::{find_printer, open_cash_drawer, print_receipt};
 
     let pool = expect_context::<sqlx::SqlitePool>();
 
@@ -875,10 +875,16 @@ pub async fn close_transaction(
             let _ = printer_tx.send(job);
         }
 
-        // Local print (unless disabled in settings — e.g. printing handled by a remote client)
-        if !read_disable_local_printing(&pool).await {
-            let _ = tokio::task::spawn_blocking(move || {
-                if let Ok((_, mut printer)) = find_printer() {
+        // Local print (unless disabled in settings — e.g. printing handled by a
+        // remote client). Even when local printing is disabled, we still open the
+        // cash drawer if a printer is physically connected, so cash sales work
+        // without printing a local receipt.
+        let local_printing_disabled = read_disable_local_printing(&pool).await;
+        let _ = tokio::task::spawn_blocking(move || {
+            if let Ok((_, mut printer)) = find_printer() {
+                if local_printing_disabled {
+                    let _ = open_cash_drawer(&mut printer);
+                } else {
                     let _ = print_receipt(
                         &mut printer,
                         receipt_items,
@@ -888,9 +894,9 @@ pub async fn close_transaction(
                         Some("data/logo_receipt.png"),
                     );
                 }
-            })
-            .await;
-        }
+            }
+        })
+        .await;
     }
 
     // Notify kitchen displays via WebSocket

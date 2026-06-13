@@ -32,6 +32,18 @@ pub fn codepage() -> u8 {
     CODEPAGE.load(Ordering::Relaxed)
 }
 
+/// Open (kick) the cash drawer wired to the receipt printer's RJ11/RJ12
+/// drawer-kick port via the ESC/POS "generate pulse" command (ESC p m t1 t2).
+///
+/// m = 0 selects drawer-kick connector pin 2 (the common wiring); t1/t2 set the
+/// pulse on/off time in units of 2 ms, so 0x19/0x78 = 50 ms on / 240 ms off,
+/// enough to fire the usual 12 V/24 V drawer solenoid. If a drawer is wired to
+/// pin 5 instead, change m to 1.
+pub fn open_cash_drawer(printer: &mut Printer) -> Result<(), Box<dyn std::error::Error>> {
+    printer.write(&[0x1B, 0x70, 0x00, 0x19, 0x78])?;
+    Ok(())
+}
+
 fn try_printer_on_port(path: &str) -> Result<Printer, Box<dyn std::error::Error>> {
     let driver = FileDriver::new(path)?;
     let encoder = Encoder::new(encoding::all::WINDOWS_1252, EncoderTrap::Replace);
@@ -135,6 +147,8 @@ pub fn print_sales_report(
 ) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
     select_codepage(printer)?;
+    // Open the cash drawer when the sales report is printed (end-of-day cash count).
+    open_cash_drawer(printer)?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
     if let Some(logo) = logo_path {
@@ -185,6 +199,8 @@ pub fn print_receipt(
 ) -> Result<(), Box<dyn std::error::Error>> {
     printer.init()?;
     select_codepage(printer)?;
+    // Open the cash drawer on every sale.
+    open_cash_drawer(printer)?;
     printer.align(Alignment::Center)?;
     printer.linespacing(1)?;
     if let Some(logo) = logo_path {
