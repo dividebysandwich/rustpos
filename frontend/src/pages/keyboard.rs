@@ -26,6 +26,18 @@ fn scroll_osk_into_view() {
 #[cfg(not(target_arch = "wasm32"))]
 fn scroll_osk_into_view() {}
 
+/// Scrolls the window to the very top. Used when opening an edit form that is
+/// rendered above a long list so the form is brought into view.
+#[cfg(target_arch = "wasm32")]
+pub fn scroll_page_to_top() {
+    if let Some(w) = web_sys::window() {
+        w.scroll_to_with_x_and_y(0.0, 0.0);
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn scroll_page_to_top() {}
+
 #[component]
 pub fn OnScreenKeyboard(
     on_key: impl Fn(String) + Copy + Send + 'static,
@@ -97,6 +109,48 @@ pub fn OnScreenKeyboard(
                     view! {
                         <button class="osk-key osk-key-space" on:click=move |_| on_key_space("Space".into())>{move || i18n.get().t("keyboard.space")}</button>
                         <button class="osk-key osk-key-wide" on:click=move |_| on_key_enter("Enter".into())>{move || i18n.get().t("keyboard.enter")}</button>
+                    }
+                }
+            </div>
+        </div>
+    }
+}
+
+/// A compact numeric keypad for numerical fields (price, stock quantity, …).
+/// Emits the same key strings as [`OnScreenKeyboard`] (`"0".."9"`, `"."`,
+/// `"Backspace"`, `"Enter"`) so the existing key handlers can be reused. Like
+/// the full keyboard, it is hidden on mobile via the `.osk` CSS rule, where the
+/// native numeric keypad is used instead.
+#[component]
+pub fn NumericKeyboard(
+    on_key: impl Fn(String) + Copy + Send + 'static,
+    i18n: RwSignal<I18n>,
+) -> impl IntoView {
+    Effect::new(move |_| { scroll_osk_into_view(); });
+
+    let rows = vec![vec!["7", "8", "9"], vec!["4", "5", "6"], vec!["1", "2", "3"], vec![".", "0", "Backspace"]];
+
+    view! {
+        <div class="osk osk-numeric">
+            {rows.into_iter().map(|row| {
+                view! {
+                    <div class="osk-row">
+                        {row.into_iter().map(|key| {
+                            let on_key_inner = on_key;
+                            let label = if key == "Backspace" { "←".to_string() } else { key.to_string() };
+                            let value = key.to_string();
+                            view! {
+                                <button class="osk-key" on:click=move |_| on_key_inner(value.clone())>{label}</button>
+                            }
+                        }).collect_view()}
+                    </div>
+                }
+            }).collect_view()}
+            <div class="osk-row">
+                {
+                    let on_key_enter = on_key;
+                    view! {
+                        <button class="osk-key osk-key-space" on:click=move |_| on_key_enter("Enter".into())>{move || i18n.get().t("keyboard.enter")}</button>
                     }
                 }
             </div>

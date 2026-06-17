@@ -7,7 +7,6 @@
   "nav.settings": "Àwọn ètò",
   "nav.light_mode": "Yí padà sí ìmọ́lẹ̀",
   "nav.dark_mode": "Yí padà sí òkùnkùn",
-
   "general.loading": "Ń gbé kalẹ̀...",
   "general.page_not_found": "A kò rí ojú-ìwé yìí",
   "general.walkin": "Alábàáwọlé",
@@ -21,11 +20,9 @@
   "general.unknown": "Aláìmọ̀",
   "general.name": "Orúkọ",
   "general.description": "Àpèjúwe",
-
   "role.admin": "Alákòóso",
   "role.cashier": "Akáṣíà",
   "role.cook": "Olùṣe oúnjẹ",
-
   "setup.select_language": "Yan Èdè",
   "setup.initial_setup": "Ètò Àkọ́kọ́",
   "setup.admin_created": "A ti ṣẹ̀dá àkáǹtì alákòóso. Jọ̀wọ́ tọ́jú àwọn ẹ̀rí wọ̀nyí:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Jọ̀wọ́ yí PIN rẹ padà lẹ́yìn tí o bá wọlé.",
   "setup.continue_login": "Tẹ̀síwájú sí Ìwọlé",
-
   "login.select_user": "Yan Olùlò",
   "login.enter_pin": "Tẹ PIN rẹ sí",
   "login.welcome": "Ẹ kú àbọ̀, {name}",
   "login.clear": "Pa á nù",
   "login.ok": "O dára",
   "login.back": "Padà",
-
   "sale.sale": "Tita",
   "sale.kitchen": "Ilé ìdáná",
   "sale.logout": "Jáde",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Àwọn Àṣẹ Ilé Ìdáná",
   "sale.no_kitchen_orders": "Kò sí àṣẹ ilé ìdáná tí ń dúró",
   "sale.complete": "Parí",
-
   "kitchen.title": "Ibi Ìfihàn Ilé Ìdáná",
   "kitchen.hide_completed": "Fi Tí A Ti Parí Pamọ́",
   "kitchen.show_completed": "Ṣàfihàn Tí A Ti Parí",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Àṣẹ Ti Parí",
   "kitchen.completed_orders": "Àwọn Àṣẹ Tí A Ti Parí",
   "kitchen.no_completed": "Kò sí àṣẹ tí a ti parí síbẹ̀",
-
   "admin.user_management": "Ìṣàkóso Olùlò",
   "admin.add_user": "Fi Olùlò Kún",
   "admin.create_user": "Ṣẹ̀dá Olùlò Tuntun",
@@ -124,7 +117,6 @@
   "admin.system_ip_hint": "Àwọn àdírẹ́sì nẹ́tíwọ̀kì tí a lè dé sí sáfà yìí. Lò wọ́n láti tọ́ka àwọn oníbàárà ìtẹ̀wé jíjìnnà àti àwọn ẹ̀rọ mìíràn sí sáfà yìí.",
   "admin.system_ip_loading": "Ń gbé wọlé…",
   "admin.system_ip_none": "Kò sí àdírẹ́sì nẹ́tíwọ̀kì tí a rí.",
-
   "items.title": "Àwọn Ohun",
   "items.add_item": "Fi Ohun Tuntun Kún",
   "items.create_item": "Ṣẹ̀dá Ohun Tuntun",
@@ -145,14 +137,12 @@
   "items.out": "Tán",
   "items.confirm_delete": "Ṣé o dá a lójú pé o fẹ́ pa \"{name}\" rẹ́?",
   "items.upload": "Gbé kalẹ̀",
-
   "categories.title": "Àwọn Ẹ̀ka",
   "categories.add": "Fi Ẹ̀ka Tuntun Kún",
   "categories.create": "Ṣẹ̀dá Ẹ̀ka Tuntun",
   "categories.edit": "Ṣàtúnṣe Ẹ̀ka",
   "categories.confirm_delete": "Ṣé o dá a lójú pé o fẹ́ pa ẹ̀ka \"{name}\" rẹ́?",
   "categories.delete_warning": "Ìkìlọ̀: Èyí kò ní pa àwọn ohun tó wà nínú ẹ̀ka yìí rẹ́, ṣùgbọ́n wọ́n lè ṣòro láti rí.",
-
   "transactions.title": "Àwọn Ìdúnàádúrà",
   "transactions.show_all": "Ṣàfihàn Gbogbo",
   "transactions.show_open": "Ṣàfihàn Tí Ó Ṣí Nìkan",
@@ -168,7 +158,6 @@
   "transactions.total_label": "Àpapọ̀: ",
   "transactions.paid": "A San: ",
   "transactions.change": "Ìyókù: ",
-
   "reports.title": "Àwọn Ìròyìn Títa",
   "reports.today": "Òní",
   "reports.monthly": "Ọjọ́ 30 Sẹ́yìn",
@@ -212,16 +201,18 @@
   "reports.underperformers_title": "Awọn nkan láìsí ìtà",
   "reports.underperformers_hint": "Awọn nkan tó ti wà ṣáájú òpin àkókò tí kò sí ìtà rárá ní àkókò tí a yàn.",
   "reports.created_at": "Tí dá",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Space",
   "keyboard.enter": "Enter",
-
   "currency.title": "Owó",
   "currency.select": "Yan Owó",
   "currency.custom": "Àmì àṣàyàn",
   "currency.custom_placeholder": "b.a. kr, CHF, $",
   "currency.set": "Ṣètò",
-  "currency.setting": "Ètò Owó"
+  "currency.setting": "Ètò Owó",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

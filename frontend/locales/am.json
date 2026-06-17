@@ -210,5 +210,9 @@
   "currency.custom": "ብጁ ምልክት",
   "currency.custom_placeholder": "ለምሳሌ kr, CHF, $",
   "currency.set": "አዘጋጅ",
-  "currency.setting": "የምንዛሪ ቅንብር"
+  "currency.setting": "የምንዛሪ ቅንብር",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

@@ -152,6 +152,10 @@
   "categories.edit": "Edit Category",
   "categories.confirm_delete": "Are you sure you want to delete the category \"{name}\"?",
   "categories.delete_warning": "Warning: This will NOT delete items in this category, but they may become harder to find.",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu",
 
   "transactions.title": "Transactions",
   "transactions.show_all": "Show All",

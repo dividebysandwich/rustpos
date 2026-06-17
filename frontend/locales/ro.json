@@ -210,5 +210,9 @@
   "currency.custom": "Simbol personalizat",
   "currency.custom_placeholder": "ex. kr, CHF, $",
   "currency.set": "Setare",
-  "currency.setting": "Setare monedă"
+  "currency.setting": "Setare monedă",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

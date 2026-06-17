@@ -103,6 +103,7 @@ async fn main() {
     .expect("Failed to create transaction_items table");
 
     // Migrations for new columns
+    sqlx::query("ALTER TABLE categories ADD COLUMN main_course BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();
     sqlx::query("ALTER TABLE items ADD COLUMN image_path TEXT").execute(&db).await.ok();
     sqlx::query("ALTER TABLE items ADD COLUMN stock_quantity INTEGER").execute(&db).await.ok();
     sqlx::query("ALTER TABLE items ADD COLUMN kitchen_item BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();

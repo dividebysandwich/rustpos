@@ -210,5 +210,9 @@
   "currency.custom": "Власний символ",
   "currency.custom_placeholder": "напр. kr, CHF, $",
   "currency.set": "Встановити",
-  "currency.setting": "Налаштування валюти"
+  "currency.setting": "Налаштування валюти",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

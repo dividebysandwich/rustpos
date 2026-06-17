@@ -1,6 +1,6 @@
 [package]
 name = "rustpos"
-version = "1.3.4"
+version = "1.3.5"
 edition = "2024"
 
 [lib]
@@ -41,6 +41,10 @@ web-sys = { version = "0.3.97", optional = true, features = [
     "WebSocket", "MessageEvent", "CloseEvent", "Location",
 ] }
 js-sys = { version = "0.3.97", optional = true }
+# Menu PDF generation (SSR only). printpdf supplies the PDF writer + builtin fonts;
+# the `image` crate decodes item/logo images to raw RGB for embedding.
+printpdf = { version = "0.7", default-features = false, optional = true }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"], optional = true }
 
 [features]
 hydrate = [
@@ -70,6 +74,8 @@ ssr = [
     "dep:rand",
     "dep:sha2",
     "dep:if-addrs",
+    "dep:printpdf",
+    "dep:image",
     "uuid/v4",
 ]
 

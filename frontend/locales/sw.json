@@ -7,7 +7,6 @@
   "nav.settings": "Mipangilio",
   "nav.light_mode": "Badilisha hali ya mwanga",
   "nav.dark_mode": "Badilisha hali ya giza",
-
   "general.loading": "Inapakia...",
   "general.page_not_found": "Ukurasa haupatikani",
   "general.walkin": "Mteja wa kawaida",
@@ -21,11 +20,9 @@
   "general.unknown": "Haijulikani",
   "general.name": "Jina",
   "general.description": "Maelezo",
-
   "role.admin": "Msimamizi",
   "role.cashier": "Karani",
   "role.cook": "Mpishi",
-
   "setup.select_language": "Chagua Lugha",
   "setup.initial_setup": "Usanidi wa Awali",
   "setup.admin_created": "Akaunti ya msimamizi imeundwa. Tafadhali hifadhi taarifa hizi:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Tafadhali badilisha PIN yako baada ya kuingia.",
   "setup.continue_login": "Endelea Kuingia",
-
   "login.select_user": "Chagua Mtumiaji",
   "login.enter_pin": "Weka PIN yako",
   "login.welcome": "Karibu, {name}",
   "login.clear": "Futa",
   "login.ok": "Sawa",
   "login.back": "Rudi",
-
   "sale.sale": "Mauzo",
   "sale.kitchen": "Jikoni",
   "sale.logout": "Ondoka",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Oda za Jikoni",
   "sale.no_kitchen_orders": "Hakuna oda za jikoni zinazosubiri",
   "sale.complete": "Kamilisha",
-
   "kitchen.title": "Skrini ya Jikoni",
   "kitchen.hide_completed": "Ficha Zilizokamilika",
   "kitchen.show_completed": "Onyesha Zilizokamilika",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Oda Imekamilika",
   "kitchen.completed_orders": "Oda Zilizokamilika",
   "kitchen.no_completed": "Hakuna oda zilizokamilika bado",
-
   "admin.user_management": "Usimamizi wa Watumiaji",
   "admin.add_user": "Ongeza Mtumiaji",
   "admin.create_user": "Unda Mtumiaji Mpya",
@@ -124,7 +117,6 @@
   "admin.system_ip_hint": "Anwani za mtandao ambazo seva hii inaweza kufikiwa. Zitumie kuelekeza wateja wa kuchapisha wa mbali na vifaa vingine kwenye seva hii.",
   "admin.system_ip_loading": "Inapakia…",
   "admin.system_ip_none": "Hakuna anwani za mtandao zilizopatikana.",
-
   "items.title": "Bidhaa",
   "items.add_item": "Ongeza Bidhaa Mpya",
   "items.create_item": "Unda Bidhaa Mpya",
@@ -145,14 +137,12 @@
   "items.out": "Imeisha",
   "items.confirm_delete": "Una uhakika unataka kufuta \"{name}\"?",
   "items.upload": "Pakia",
-
   "categories.title": "Kategoria",
   "categories.add": "Ongeza Kategoria Mpya",
   "categories.create": "Unda Kategoria Mpya",
   "categories.edit": "Hariri Kategoria",
   "categories.confirm_delete": "Una uhakika unataka kufuta kategoria \"{name}\"?",
   "categories.delete_warning": "Onyo: Hii HAITAFUTA bidhaa katika kategoria hii, lakini zinaweza kuwa ngumu kupatikana.",
-
   "transactions.title": "Miamala",
   "transactions.show_all": "Onyesha Zote",
   "transactions.show_open": "Onyesha Zilizo Wazi Tu",
@@ -168,7 +158,6 @@
   "transactions.total_label": "Jumla: ",
   "transactions.paid": "Imelipwa: ",
   "transactions.change": "Chenji: ",
-
   "reports.title": "Ripoti za Mauzo",
   "reports.today": "Leo",
   "reports.monthly": "Siku 30 Zilizopita",
@@ -212,16 +201,18 @@
   "reports.underperformers_title": "Bidhaa Zisizouzwa",
   "reports.underperformers_hint": "Bidhaa zilizokuwepo kabla ya mwisho wa kipindi ambazo hazikupata mauzo katika kipindi kilichochaguliwa.",
   "reports.created_at": "Imeundwa",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Space",
   "keyboard.enter": "Enter",
-
   "currency.title": "Sarafu",
   "currency.select": "Chagua Sarafu",
   "currency.custom": "Alama maalum",
   "currency.custom_placeholder": "mf. kr, CHF, $",
   "currency.set": "Weka",
-  "currency.setting": "Mpangilio wa Sarafu"
+  "currency.setting": "Mpangilio wa Sarafu",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

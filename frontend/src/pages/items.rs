@@ -3,8 +3,23 @@ use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
-use crate::pages::keyboard::OnScreenKeyboard;
+use crate::pages::keyboard::{scroll_page_to_top, NumericKeyboard, OnScreenKeyboard};
 use crate::server_fns::*;
+
+/// Turn a base64-encoded PDF into a browser download.
+#[cfg(not(target_arch = "wasm32"))]
+fn trigger_pdf_download(_pdf_b64: &str, _filename: &str) {}
+
+#[cfg(target_arch = "wasm32")]
+fn trigger_pdf_download(pdf_b64: &str, filename: &str) {
+    use wasm_bindgen::prelude::*;
+    let doc = leptos::prelude::document();
+    let a: web_sys::HtmlAnchorElement = doc.create_element("a").unwrap().unchecked_into();
+    let href = format!("data:application/pdf;base64,{}", pdf_b64);
+    a.set_href(&href);
+    a.set_download(filename);
+    a.click();
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 fn handle_image_file(_ev: leptos::ev::Event, _set: WriteSignal<Option<String>>) {}
@@ -97,12 +112,15 @@ pub fn ItemsPage() -> impl IntoView {
 
     let on_kb_key = move |key: String| {
         let Some(target) = kb_target.get() else { return };
-        let numeric = target == "price";
+        let numeric = target == "price" || target == "stock";
+        // Stock quantity is a whole number; only price accepts a decimal point.
+        let allow_decimal = target == "price";
         let setter = match target.as_str() {
             "name" => set_name,
             "description" => set_description,
             "sku" => set_sku,
             "price" => set_price,
+            "stock" => set_stock_quantity,
             _ => return,
         };
         match key.as_str() {
@@ -112,10 +130,10 @@ pub fn ItemsPage() -> impl IntoView {
             "Space" => { if !numeric { setter.update(|s| s.push(' ')); } }
             ch => {
                 if numeric {
-                    // Price accepts digits and a single decimal point only
+                    // Accept digits, plus a single decimal point for price.
                     if ch.chars().all(|c| c.is_ascii_digit()) {
                         setter.update(|s| s.push_str(ch));
-                    } else if ch == "." || ch == "," {
+                    } else if (ch == "." || ch == ",") && allow_decimal {
                         setter.update(|s| if !s.contains('.') { s.push('.'); });
                     }
                 } else {
@@ -138,6 +156,9 @@ pub fn ItemsPage() -> impl IntoView {
 
     let start_edit = move |item: Item| {
         set_kb_target.set(None);
+        // The edit form renders above the (potentially long) item list, so bring
+        // it into view.
+        scroll_page_to_top();
         set_name.set(item.name.clone());
         set_description.set(item.description.clone().unwrap_or_default());
         set_price.set(item.price.to_string());
@@ -241,14 +262,31 @@ pub fn ItemsPage() -> impl IntoView {
     };
     let remove_image = move |_| { set_image_preview.set(None); };
 
+    let (generating_menu, set_generating_menu) = signal(false);
+    let download_menu = move |_| {
+        set_generating_menu.set(true);
+        let title = i18n.get().t("menu.title");
+        leptos::task::spawn_local(async move {
+            if let Ok(pdf_b64) = generate_menu_pdf(title).await {
+                trigger_pdf_download(&pdf_b64, "menu.pdf");
+            }
+            set_generating_menu.set(false);
+        });
+    };
+
     view! {
         <Show when=move || authorized.get() fallback=move || view! { <div class="loading">{move || i18n.get().t("general.loading")}</div> }>
         <div>
             <div class="page-header">
                 <h2>{move || i18n.get().t("items.title")}</h2>
-                <button class="btn-primary" on:click=start_create
-                    disabled=move || editing_item.get().is_some() || creating_item.get()
-                >{move || i18n.get().t("items.add_item")}</button>
+                <div class="page-header-actions">
+                    <button class="btn-secondary" on:click=download_menu
+                        disabled=move || generating_menu.get()
+                    >{move || if generating_menu.get() { i18n.get().t("categories.generating_menu") } else { i18n.get().t("categories.print_menu") }}</button>
+                    <button class="btn-primary" on:click=start_create
+                        disabled=move || editing_item.get().is_some() || creating_item.get()
+                    >{move || i18n.get().t("items.add_item")}</button>
+                </div>
             </div>
 
             <Show when=move || deleting_item.get().is_some() fallback=|| ()>
@@ -279,21 +317,17 @@ pub fn ItemsPage() -> impl IntoView {
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.name")}</label>
                             <div class="admin-input-row">
-                                <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("name".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" value=move || name.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_name.set(event_target_value(&ev)) />
                             </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("items.price")}</label>
                             <div class="admin-input-row">
-                                <input type="text" inputmode="decimal" value=move || price.get() on:input=move |ev| set_price.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("price".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("price".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("price".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" inputmode="decimal" value=move || price.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("price".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_price.set(event_target_value(&ev)) />
                             </div>
                         </div>
                         <div class="form-group">
@@ -307,21 +341,17 @@ pub fn ItemsPage() -> impl IntoView {
                         <div class="form-group">
                             <label>{move || i18n.get().t("items.sku")}</label>
                             <div class="admin-input-row">
-                                <input type="text" value=move || sku.get() on:input=move |ev| set_sku.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("sku".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("sku".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("sku".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" value=move || sku.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("sku".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_sku.set(event_target_value(&ev)) />
                             </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.description")}</label>
                             <div class="admin-input-row">
-                                <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("description".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("description".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" value=move || description.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_description.set(event_target_value(&ev)) />
                             </div>
                         </div>
                         <div class="form-group">
@@ -342,8 +372,9 @@ pub fn ItemsPage() -> impl IntoView {
                                 " " {move || i18n.get().t("items.track_stock")}
                             </label>
                             <Show when=move || track_stock.get() fallback=move || view! { <span class="text-muted">{i18n.get().t("items.endless")}</span> }>
-                                <input type="number" min="0" placeholder=move || i18n.get().t("items.quantity")
+                                <input type="number" min="0" inputmode="numeric" placeholder=move || i18n.get().t("items.quantity")
                                     value=move || stock_quantity.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("stock".into())); set_kb_shift.set(false); }
                                     on:input=move |ev| set_stock_quantity.set(event_target_value(&ev))
                                 />
                             </Show>
@@ -359,7 +390,10 @@ pub fn ItemsPage() -> impl IntoView {
                             </Show>
                         </div>
                     </div>
-                    <Show when=move || kb_target.get().is_some() fallback=|| ()>
+                    <Show when=move || matches!(kb_target.get().as_deref(), Some("price") | Some("stock")) fallback=|| ()>
+                        <NumericKeyboard on_key=on_kb_key i18n=i18n />
+                    </Show>
+                    <Show when=move || matches!(kb_target.get().as_deref(), Some("name") | Some("description") | Some("sku")) fallback=|| ()>
                         <OnScreenKeyboard on_key=on_kb_key shift=kb_shift i18n=i18n />
                     </Show>
                     <div class="form-actions">

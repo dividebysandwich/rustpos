@@ -210,5 +210,9 @@
   "currency.custom": "Símbolo personalizado",
   "currency.custom_placeholder": "ex. kr, CHF, $",
   "currency.set": "Definir",
-  "currency.setting": "Configuração de moeda"
+  "currency.setting": "Configuração de moeda",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

@@ -210,5 +210,9 @@
   "currency.custom": "Alamar al'ada",
   "currency.custom_placeholder": "misali kr, CHF, $",
   "currency.set": "Saita",
-  "currency.setting": "Saitunan Kudin"
+  "currency.setting": "Saitunan Kudin",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

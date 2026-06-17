@@ -210,5 +210,9 @@
   "currency.custom": "Simbolo personalizzato",
   "currency.custom_placeholder": "es. kr, CHF, $",
   "currency.set": "Imposta",
-  "currency.setting": "Impostazione valuta"
+  "currency.setting": "Impostazione valuta",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

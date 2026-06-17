@@ -210,5 +210,9 @@
   "currency.custom": "Vlastní symbol",
   "currency.custom_placeholder": "např. kr, CHF, $",
   "currency.set": "Nastavit",
-  "currency.setting": "Nastavení měny"
+  "currency.setting": "Nastavení měny",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

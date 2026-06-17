@@ -3,8 +3,23 @@ use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
-use crate::pages::keyboard::OnScreenKeyboard;
+use crate::pages::keyboard::{scroll_page_to_top, OnScreenKeyboard};
 use crate::server_fns::*;
+
+/// Turn a base64-encoded PDF into a browser download.
+#[cfg(not(target_arch = "wasm32"))]
+fn trigger_pdf_download(_pdf_b64: &str, _filename: &str) {}
+
+#[cfg(target_arch = "wasm32")]
+fn trigger_pdf_download(pdf_b64: &str, filename: &str) {
+    use wasm_bindgen::prelude::*;
+    let doc = leptos::prelude::document();
+    let a: web_sys::HtmlAnchorElement = doc.create_element("a").unwrap().unchecked_into();
+    let href = format!("data:application/pdf;base64,{}", pdf_b64);
+    a.set_href(&href);
+    a.set_download(filename);
+    a.click();
+}
 
 #[component]
 pub fn CategoriesPage() -> impl IntoView {
@@ -29,6 +44,7 @@ pub fn CategoriesPage() -> impl IntoView {
 
     let (name, set_name) = signal(String::new());
     let (description, set_description) = signal(String::new());
+    let (main_course, set_main_course) = signal(false);
 
     // On-screen keyboard target: "name" or "description" (hidden on mobile via CSS)
     let (kb_target, set_kb_target) = signal(Option::<String>::None);
@@ -65,8 +81,11 @@ pub fn CategoriesPage() -> impl IntoView {
 
     let start_edit = move |category: Category| {
         set_kb_target.set(None);
+        // The edit form renders above the category list; bring it into view.
+        scroll_page_to_top();
         set_name.set(category.name.clone());
         set_description.set(category.description.clone().unwrap_or_default());
+        set_main_course.set(category.main_course);
         set_editing_category.set(Some(category));
     };
 
@@ -76,8 +95,9 @@ pub fn CategoriesPage() -> impl IntoView {
         if creating {
             let n = name.get();
             let d = Some(description.get()).filter(|s| !s.is_empty());
+            let mc = Some(main_course.get());
             leptos::task::spawn_local(async move {
-                if create_category(n, d).await.is_ok() {
+                if create_category(n, d, mc).await.is_ok() {
                     set_creating_category.set(false);
                     set_reload.update(|v| *v += 1);
                 }
@@ -85,9 +105,10 @@ pub fn CategoriesPage() -> impl IntoView {
         } else if let Some(category) = editing {
             let n = Some(name.get());
             let d = Some(description.get()).filter(|s| !s.is_empty());
+            let mc = Some(main_course.get());
             let cat_id = category.id;
             leptos::task::spawn_local(async move {
-                if update_category(cat_id, n, d).await.is_ok() {
+                if update_category(cat_id, n, d, mc).await.is_ok() {
                     set_editing_category.set(None);
                     set_reload.update(|v| *v += 1);
                 }
@@ -111,11 +132,25 @@ pub fn CategoriesPage() -> impl IntoView {
         set_kb_target.set(None);
         set_editing_category.set(None); set_creating_category.set(false);
         set_name.set(String::new()); set_description.set(String::new());
+        set_main_course.set(false);
     };
     let start_create = move |_| {
         set_kb_target.set(None);
         set_name.set(String::new()); set_description.set(String::new());
+        set_main_course.set(false);
         set_creating_category.set(true); set_editing_category.set(None);
+    };
+
+    let (generating_menu, set_generating_menu) = signal(false);
+    let download_menu = move |_| {
+        set_generating_menu.set(true);
+        let title = i18n.get().t("menu.title");
+        leptos::task::spawn_local(async move {
+            if let Ok(pdf_b64) = generate_menu_pdf(title).await {
+                trigger_pdf_download(&pdf_b64, "menu.pdf");
+            }
+            set_generating_menu.set(false);
+        });
     };
 
     view! {
@@ -123,9 +158,14 @@ pub fn CategoriesPage() -> impl IntoView {
         <div>
             <div class="page-header">
                 <h2>{move || i18n.get().t("categories.title")}</h2>
-                <button class="btn-primary" on:click=start_create
-                    disabled=move || editing_category.get().is_some() || creating_category.get()
-                >{move || i18n.get().t("categories.add")}</button>
+                <div class="page-header-actions">
+                    <button class="btn-secondary" on:click=download_menu
+                        disabled=move || generating_menu.get()
+                    >{move || if generating_menu.get() { i18n.get().t("categories.generating_menu") } else { i18n.get().t("categories.print_menu") }}</button>
+                    <button class="btn-primary" on:click=start_create
+                        disabled=move || editing_category.get().is_some() || creating_category.get()
+                    >{move || i18n.get().t("categories.add")}</button>
+                </div>
             </div>
 
             <Show when=move || deleting_category.get().is_some() fallback=|| ()>
@@ -157,22 +197,24 @@ pub fn CategoriesPage() -> impl IntoView {
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.name")}</label>
                             <div class="admin-input-row">
-                                <input type="text" value=move || name.get() on:input=move |ev| set_name.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("name".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" value=move || name.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("name".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_name.set(event_target_value(&ev)) />
                             </div>
                         </div>
                         <div class="form-group">
                             <label>{move || i18n.get().t("general.description")}</label>
                             <div class="admin-input-row">
-                                <input type="text" value=move || description.get() on:input=move |ev| set_description.set(event_target_value(&ev)) />
-                                <button class="btn-secondary-small" type="button" on:click=move |_| {
-                                    if kb_target.get() == Some("description".into()) { set_kb_target.set(None); }
-                                    else { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
-                                }>{move || if kb_target.get() == Some("description".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
+                                <input type="text" value=move || description.get()
+                                    on:focus=move |_| { set_kb_target.set(Some("description".into())); set_kb_shift.set(false); }
+                                    on:input=move |ev| set_description.set(event_target_value(&ev)) />
                             </div>
+                        </div>
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked=move || main_course.get() on:change=move |ev| set_main_course.set(event_target_checked(&ev)) />
+                                " " {move || i18n.get().t("categories.main_course")}
+                            </label>
                         </div>
                     </div>
                     <Show when=move || kb_target.get().is_some() fallback=|| ()>
@@ -186,17 +228,19 @@ pub fn CategoriesPage() -> impl IntoView {
             </Show>
 
             <table class="data-table">
-                <thead><tr><th>{move || i18n.get().t("general.name")}</th><th>{move || i18n.get().t("general.description")}</th><th></th></tr></thead>
+                <thead><tr><th>{move || i18n.get().t("general.name")}</th><th>{move || i18n.get().t("general.description")}</th><th>{move || i18n.get().t("categories.main_course")}</th><th></th></tr></thead>
                 <tbody>
-                    <For each=move || categories.get() key=|c| (c.id, c.description.clone(), c.name.clone()) let:category>
+                    <For each=move || categories.get() key=|c| (c.id, c.description.clone(), c.name.clone(), c.main_course) let:category>
                         {
                             let category_clone = category.clone();
                             let category_id = category.id;
                             let category_name = category.name.clone();
+                            let is_main = category.main_course;
                             view! {
                                 <tr>
                                     <td>{category.name.clone()}</td>
                                     <td>{category.description.clone().unwrap_or_else(|| "-".to_string())}</td>
+                                    <td>{if is_main { "✓" } else { "" }}</td>
                                     <td class="data-table-actions">
                                         <button class="btn-small" on:click=move |_| start_edit(category_clone.clone())
                                             disabled=move || editing_category.get().is_some() || creating_category.get()

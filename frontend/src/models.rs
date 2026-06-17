@@ -8,6 +8,9 @@ pub struct Category {
     pub id: Uuid,
     pub name: String,
     pub description: Option<String>,
+    /// Categories flagged as main courses are highlighted on the printed menu
+    /// sheet (shown with item images), as opposed to plain text-only sections.
+    pub main_course: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

@@ -210,5 +210,9 @@
   "currency.custom": "Własny symbol",
   "currency.custom_placeholder": "np. kr, CHF, $",
   "currency.set": "Ustaw",
-  "currency.setting": "Ustawienia waluty"
+  "currency.setting": "Ustawienia waluty",
+  "categories.main_course": "Main course",
+  "categories.print_menu": "Menu PDF",
+  "categories.generating_menu": "Generating…",
+  "menu.title": "Menu"
 }

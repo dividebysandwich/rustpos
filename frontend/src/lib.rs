@@ -2,6 +2,8 @@
 
 pub mod app;
 pub mod i18n;
+#[cfg(feature = "ssr")]
+pub mod menu_pdf;
 pub mod models;
 pub mod pages;
 pub mod server_fns;

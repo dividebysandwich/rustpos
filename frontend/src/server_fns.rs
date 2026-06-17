@@ -173,17 +173,20 @@ pub async fn fetch_categories() -> Result<Vec<Category>, ServerFnError> {
 pub async fn create_category(
     name: String,
     description: Option<String>,
+    main_course: Option<bool>,
 ) -> Result<Category, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let id = Uuid::new_v4();
     let now = Utc::now();
+    let main_course = main_course.unwrap_or(false);
     let category = sqlx::query_as::<_, Category>(
-        "INSERT INTO categories (id, name, description, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?) RETURNING *",
+        "INSERT INTO categories (id, name, description, main_course, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
     )
     .bind(id)
     .bind(&name)
     .bind(&description)
+    .bind(main_course)
     .bind(now)
     .bind(now)
     .fetch_one(&pool)
@@ -197,6 +200,7 @@ pub async fn update_category(
     id: Uuid,
     name: Option<String>,
     description: Option<String>,
+    main_course: Option<bool>,
 ) -> Result<Category, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let mut category = sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ?")
@@ -208,13 +212,15 @@ pub async fn update_category(
 
     if let Some(n) = name { category.name = n; }
     if let Some(d) = description { category.description = Some(d); }
+    if let Some(mc) = main_course { category.main_course = mc; }
     category.updated_at = Utc::now();
 
     let updated = sqlx::query_as::<_, Category>(
-        "UPDATE categories SET name = ?, description = ?, updated_at = ? WHERE id = ? RETURNING *",
+        "UPDATE categories SET name = ?, description = ?, main_course = ?, updated_at = ? WHERE id = ? RETURNING *",
     )
     .bind(&category.name)
     .bind(&category.description)
+    .bind(category.main_course)
     .bind(category.updated_at)
     .bind(id)
     .fetch_one(&pool)
@@ -235,6 +241,76 @@ pub async fn delete_category(id: Uuid) -> Result<(), ServerFnError> {
         return Err(not_found("Category not found"));
     }
     Ok(())
+}
+
+/// Generates a printable PDF menu sheet and returns it base64-encoded.
+///
+/// The sheet shows the logo and `title`, then the available items of every
+/// "main course" category with images and prices, followed by the remaining
+/// categories as image-less sections. Only items that are in stock are listed,
+/// and empty categories are skipped.
+#[server]
+pub async fn generate_menu_pdf(title: String) -> Result<String, ServerFnError> {
+    use base64::Engine;
+    use crate::menu_pdf::{build_menu_pdf, MenuItem, MenuSection};
+
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    // Main courses first, then the rest; stable by name within each group.
+    let categories = sqlx::query_as::<_, Category>(
+        "SELECT * FROM categories ORDER BY main_course DESC, name",
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let currency: String = sqlx::query_scalar("SELECT value FROM config WHERE key = 'currency'")
+        .fetch_optional(&pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+
+    let mut sections: Vec<MenuSection> = Vec::new();
+    for category in &categories {
+        let items = sqlx::query_as::<_, Item>(
+            "SELECT * FROM items WHERE category_id = ? AND in_stock = 1 ORDER BY name",
+        )
+        .bind(category.id)
+        .fetch_all(&pool)
+        .await
+        .map_err(db_err)?;
+
+        if items.is_empty() {
+            continue;
+        }
+
+        sections.push(MenuSection {
+            name: category.name.clone(),
+            main_course: category.main_course,
+            items: items
+                .into_iter()
+                .map(|i| MenuItem {
+                    name: i.name,
+                    price: i.price,
+                    description: i.description,
+                    // `image_path` is a web URL ("/item_images/..."); map it to
+                    // the on-disk path served from the data directory.
+                    image_path: i.image_path.map(|p| format!("data{}", p)),
+                })
+                .collect(),
+        });
+    }
+
+    let pdf_bytes = tokio::task::spawn_blocking(move || {
+        build_menu_pdf(&title, &currency, "data/logo_receipt.png", &sections)
+    })
+    .await
+    .map_err(|e| ServerFnError::new(e.to_string()))?
+    .map_err(ServerFnError::new)?;
+
+    Ok(base64::engine::general_purpose::STANDARD.encode(&pdf_bytes))
 }
 
 // ---- Item Server Functions ----

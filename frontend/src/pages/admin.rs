@@ -325,17 +325,11 @@ pub fn AdminPage() -> impl IntoView {
                         <label>{move || i18n.get().t("admin.username")}</label>
                         <div class="admin-input-row">
                             <input type="text"
+                                on:focus=move |_| set_kb_target.set(Some("new_name".into()))
                                 on:input=move |ev| set_new_name.set(event_target_value(&ev))
                                 prop:value=move || new_name.get()
                                 placeholder=move || i18n.get().t("admin.username")
                             />
-                            <button class="btn-secondary-small" on:click=move |_| {
-                                if kb_target.get() == Some("new_name".into()) {
-                                    set_kb_target.set(None);
-                                } else {
-                                    set_kb_target.set(Some("new_name".into()));
-                                }
-                            }>{move || if kb_target.get() == Some("new_name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
                         </div>
                     </div>
 
@@ -401,17 +395,11 @@ pub fn AdminPage() -> impl IntoView {
                         <label>{move || i18n.get().t("admin.username")}</label>
                         <div class="admin-input-row">
                             <input type="text"
+                                on:focus=move |_| set_kb_target.set(Some("edit_name".into()))
                                 on:input=move |ev| set_edit_name.set(event_target_value(&ev))
                                 prop:value=move || edit_name.get()
                                 placeholder=move || i18n.get().t("admin.username")
                             />
-                            <button class="btn-secondary-small" on:click=move |_| {
-                                if kb_target.get() == Some("edit_name".into()) {
-                                    set_kb_target.set(None);
-                                } else {
-                                    set_kb_target.set(Some("edit_name".into()));
-                                }
-                            }>{move || if kb_target.get() == Some("edit_name".into()) { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}</button>
                         </div>
                     </div>
 

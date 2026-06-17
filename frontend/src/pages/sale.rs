@@ -629,12 +629,10 @@ pub fn SalePage() -> impl IntoView {
                                     <input
                                         type="text"
                                         placeholder=move || i18n.get().t("sale.customer_optional")
+                                        on:focus=move |_| set_show_name_kb.set(true)
                                         on:input=move |ev| set_customer_name.set(event_target_value(&ev))
                                         prop:value=move || customer_name.get()
                                     />
-                                    <button class="btn-secondary-small" on:click=move |_| set_show_name_kb.set(!show_name_kb.get())>
-                                        {move || if show_name_kb.get() { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}
-                                    </button>
                                 </div>
                                 <Show when=move || show_name_kb.get() && current_transaction.get().is_none() fallback=|| ()>
                                     <OnScreenKeyboard on_key=on_name_kb_key shift=kb_shift i18n=i18n />
@@ -680,15 +678,13 @@ pub fn SalePage() -> impl IntoView {
                                 <div class="admin-input-row">
                                     <strong>{i18n.get().t("sale.customer")}</strong>
                                     <input type="text" placeholder=move || i18n.get().t("general.walkin")
+                                        on:focus=move |_| set_show_name_kb.set(true)
                                         on:input=move |ev| {
                                             set_customer_name.set(event_target_value(&ev));
                                             sync_customer_name();
                                         }
                                         prop:value=move || customer_name.get()
                                     />
-                                    <button class="btn-secondary-small" on:click=move |_| set_show_name_kb.set(!show_name_kb.get())>
-                                        {move || if show_name_kb.get() { i18n.get().t("admin.hide_kb") } else { i18n.get().t("admin.keyboard") }}
-                                    </button>
                                 </div>
                                 <Show when=move || show_name_kb.get() && current_transaction.get().is_some() fallback=|| ()>
                                     <OnScreenKeyboard on_key=on_name_kb_key shift=kb_shift i18n=i18n />

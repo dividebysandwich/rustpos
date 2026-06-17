@@ -284,6 +284,12 @@ button:focus-visible {
     margin-bottom: var(--space-lg);
 }
 
+.page-header-actions {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: center;
+}
+
 /* ============================================
    Sale Page
    ============================================ */
@@ -2594,6 +2600,11 @@ button:focus-visible {
 .osk-key-space {
     flex: 1;
     min-width: 200px;
+}
+
+/* Numeric keypad: let the Enter key span the three-column width */
+.osk-numeric .osk-key-space {
+    min-width: 0;
 }
 
 .osk-key-active {
