@@ -690,3 +690,24 @@ mod tests {
 
 
 
+
+#[cfg(test)]
+mod logo_check {
+    use super::*;
+    #[test]
+    fn site_logo_header() {
+        let logo = concat!(env!("CARGO_MANIFEST_DIR"), "/../site/logo_site.png");
+        let sections = vec![
+            MenuSection { name: "Hauptgerichte".into(), main_course: true, items: vec![
+                MenuItem { name: "Schnitzel".into(), price: 12.5, description: Some("Mit Pommes".into()), image_path: None },
+                MenuItem { name: "Burger".into(), price: 9.0, description: None, image_path: None },
+            ]},
+            MenuSection { name: "Getränke".into(), main_course: false, items: vec![
+                MenuItem { name: "Cola".into(), price: 2.5, description: None, image_path: None },
+                MenuItem { name: "Wasser".into(), price: 1.5, description: None, image_path: None },
+            ]},
+        ];
+        let bytes = build_menu_pdf("Speisekarte", "€", logo, &sections).unwrap();
+        std::fs::write("/tmp/menu_sitelogo.pdf", &bytes).unwrap();
+    }
+}

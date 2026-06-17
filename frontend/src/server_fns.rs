@@ -303,8 +303,16 @@ pub async fn generate_menu_pdf(title: String) -> Result<String, ServerFnError> {
         });
     }
 
+    // Prefer the site logo (bundled into the `site` root as /logo_site.png),
+    // falling back to the receipt logo if it isn't present.
+    let logo_path = if std::path::Path::new("site/logo_site.png").exists() {
+        "site/logo_site.png"
+    } else {
+        "data/logo_receipt.png"
+    };
+
     let pdf_bytes = tokio::task::spawn_blocking(move || {
-        build_menu_pdf(&title, &currency, "data/logo_receipt.png", &sections)
+        build_menu_pdf(&title, &currency, logo_path, &sections)
     })
     .await
     .map_err(|e| ServerFnError::new(e.to_string()))?
