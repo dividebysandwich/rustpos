@@ -41,10 +41,12 @@ web-sys = { version = "0.3.97", optional = true, features = [
     "WebSocket", "MessageEvent", "CloseEvent", "Location",
 ] }
 js-sys = { version = "0.3.97", optional = true }
-# Menu PDF generation (SSR only). printpdf supplies the PDF writer + builtin fonts;
-# the `image` crate decodes item/logo images to raw RGB for embedding.
-printpdf = { version = "0.7", default-features = false, optional = true }
+# Menu PDF generation (SSR only). printpdf supplies the PDF writer; `font_subsetting`
+# embeds only the glyphs actually used so the bundled Noto Sans doesn't bloat every
+# PDF. `image` decodes item/logo images to raw RGB, `ttf-parser` measures text.
+printpdf = { version = "0.7", default-features = false, features = ["font_subsetting"], optional = true }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"], optional = true }
+ttf-parser = { version = "0.25.1", default-features = false, features = ["std"], optional = true }
 
 [features]
 hydrate = [
@@ -76,6 +78,7 @@ ssr = [
     "dep:if-addrs",
     "dep:printpdf",
     "dep:image",
+    "dep:ttf-parser",
     "uuid/v4",
 ]
 

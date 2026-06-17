@@ -1,17 +1,34 @@
 //! Server-side generation of a printable PDF menu sheet.
 //!
-//! Renders the restaurant logo and a menu title, followed by the items of every
-//! category flagged as a "main course" (each shown with its image and price),
-//! and finally the remaining categories as compact, image-less sections.
+//! Renders the restaurant logo and a menu title, followed by every category
+//! (main courses first). Each category gets a full-width header band and then
+//! its items in a two-column list with a vertical divider between the columns;
+//! main-course items additionally show a thumbnail and description. Leader dots
+//! connect each item name to its right-aligned price.
 //!
-//! Layout is done by hand on an A4 portrait page. The logo and title span the
-//! full width; everything below flows in two equal columns separated by a
-//! vertical divider. A top-down cursor (`y` is the distance from the top edge
-//! in millimetres) fills the left column, then the right, then a new page.
-//! printpdf places everything from the bottom-left corner, so coordinates are
-//! converted on the way out.
+//! Layout is done by hand on an A4 portrait page with a top-down cursor (`y` is
+//! the distance from the top edge in millimetres); categories and their rows
+//! flow onto new pages when they would overflow the bottom margin. printpdf
+//! places everything from the bottom-left corner, so coordinates are converted
+//! on the way out.
 
+use printpdf::path::PaintMode;
 use printpdf::*;
+use std::io::Cursor;
+use std::sync::OnceLock;
+
+/// Bundled Noto Sans (SIL OFL 1.1) — embedded so generated PDFs are portable
+/// and render with consistent, properly-spaced glyphs instead of the built-in
+/// base-14 fonts.
+static FONT_REGULAR: &[u8] = include_bytes!("../fonts/NotoSans-Regular.ttf");
+static FONT_BOLD: &[u8] = include_bytes!("../fonts/NotoSans-Bold.ttf");
+
+/// Lazily-parsed regular face used to measure text advance widths. Bold widths
+/// differ only marginally, so the regular face is used for all measurements.
+fn metrics_face() -> &'static ttf_parser::Face<'static> {
+    static FACE: OnceLock<ttf_parser::Face<'static>> = OnceLock::new();
+    FACE.get_or_init(|| ttf_parser::Face::parse(FONT_REGULAR, 0).expect("valid bundled font"))
+}
 
 /// A single available item shown on the menu.
 pub struct MenuItem {
@@ -58,6 +75,14 @@ fn black() -> Color {
 }
 fn gray() -> Color {
     Color::Rgb(Rgb::new(0.55, 0.55, 0.55, None))
+}
+/// Section-header band gradient endpoints (R, G, B): dark on the left (where
+/// the title sits) fading to a brighter slate on the right.
+const BAND_DARK: (f32, f32, f32) = (0.09, 0.10, 0.13);
+const BAND_BRIGHT: (f32, f32, f32) = (0.52, 0.55, 0.62);
+/// Text colour on the section-header bands.
+fn band_text() -> Color {
+    Color::Rgb(Rgb::new(1.0, 1.0, 1.0, None))
 }
 
 /// Loads an image from disk and returns straight RGB8 bytes plus its pixel
@@ -109,20 +134,23 @@ struct Pdf {
     font_bold: IndirectFontRef,
     /// Distance from the top of the current page to the drawing cursor, in mm.
     y: f32,
-    /// Current column: 0 = left, 1 = right.
-    col: usize,
-    /// Left edge of the current column's content, in mm.
-    col_x: f32,
-    /// `y` at which the columns begin (below the header on page 1, the top
-    /// margin on later pages). Used to reset the cursor on a column break.
-    content_top: f32,
 }
 
 impl Pdf {
-    /// Rough width of a string in mm. Helvetica glyphs average ~0.5em; this is
-    /// only used for centring/right-aligning, so an approximation is fine.
+    /// Width of a string in mm, summed from the real glyph advances of the
+    /// bundled font so centring, right-alignment and leader dots line up.
     fn text_width(s: &str, size_pt: f32) -> f32 {
-        s.chars().count() as f32 * size_pt * 0.5 * PT_TO_MM
+        let face = metrics_face();
+        let upm = face.units_per_em() as f32;
+        let units: f32 = s
+            .chars()
+            .map(|ch| {
+                face.glyph_index(ch)
+                    .and_then(|g| face.glyph_hor_advance(g))
+                    .unwrap_or(0) as f32
+            })
+            .sum();
+        units / upm * size_pt * PT_TO_MM
     }
 
     /// Greedily wraps `s` into lines no wider than `max_width` mm (using the
@@ -152,37 +180,14 @@ impl Pdf {
     fn new_page(&mut self) {
         let (page, layer) = self.doc.add_page(Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
         self.layer = self.doc.get_page(page).get_layer(layer);
-        // Later pages have no header, so columns start at the top margin.
-        self.begin_columns(MARGIN);
+        self.y = MARGIN;
     }
 
-    /// Begins the two-column area at `content_top`: resets to the left column
-    /// and draws the vertical divider down the gutter for the current page.
-    fn begin_columns(&mut self, content_top: f32) {
-        self.content_top = content_top;
-        self.col = 0;
-        self.col_x = COL_LEFT_X;
-        self.y = content_top;
-        self.vline(COL_SEP_X, content_top, BOTTOM_LIMIT);
-    }
-
-    /// Moves the cursor to the next column, or to a fresh page when the right
-    /// column is exhausted.
-    fn next_column(&mut self) {
-        if self.col == 0 {
-            self.col = 1;
-            self.col_x = COL_RIGHT_X;
-            self.y = self.content_top;
-        } else {
-            self.new_page();
-        }
-    }
-
-    /// Breaks to the next column if `needed` mm of vertical space won't fit
-    /// below the cursor in the current column.
+    /// Starts a new page if `needed` mm of vertical space won't fit below the
+    /// cursor on the current page.
     fn ensure(&mut self, needed: f32) {
         if self.y + needed > BOTTOM_LIMIT {
-            self.next_column();
+            self.new_page();
         }
     }
 
@@ -197,19 +202,70 @@ impl Pdf {
             .use_text(s, size_pt, Mm(x), Mm(PAGE_H - baseline_from_top), font);
     }
 
-    /// Draws a horizontal rule across the current column at `y_top` mm.
-    fn hrule(&self, y_top: f32) {
-        self.layer.set_outline_color(gray());
-        self.layer.set_outline_thickness(0.4);
-        let yb = PAGE_H - y_top;
-        let line = Line {
-            points: vec![
-                (Point::new(Mm(self.col_x), Mm(yb)), false),
-                (Point::new(Mm(self.col_x + COL_W), Mm(yb)), false),
-            ],
-            is_closed: false,
-        };
-        self.layer.add_line(line);
+    /// Draws a section-header band spanning the full content width at `y_top`
+    /// with the given `height`, filled with a left-to-right dark→bright
+    /// gradient, and the title (white, bold) on the dark end. printpdf 0.7 has
+    /// no native gradient, so it is approximated with thin vertical strips.
+    fn section_band(&self, title: &str, y_top: f32, height: f32, title_size: f32) {
+        const STRIPS: usize = 96;
+        let x0 = MARGIN;
+        let x1 = PAGE_W - MARGIN;
+        let strip_w = (x1 - x0) / STRIPS as f32;
+        let (dark, bright) = (BAND_DARK, BAND_BRIGHT);
+        for i in 0..STRIPS {
+            let t = i as f32 / (STRIPS - 1) as f32;
+            let lerp = |a: f32, b: f32| a + (b - a) * t;
+            self.layer.set_fill_color(Color::Rgb(Rgb::new(
+                lerp(dark.0, bright.0),
+                lerp(dark.1, bright.1),
+                lerp(dark.2, bright.2),
+                None,
+            )));
+            let sx = x0 + i as f32 * strip_w;
+            // Tiny overlap so anti-aliasing leaves no hairline seams.
+            let rect = Rect::new(
+                Mm(sx),
+                Mm(PAGE_H - (y_top + height)),
+                Mm(sx + strip_w + 0.15),
+                Mm(PAGE_H - y_top),
+            )
+            .with_mode(PaintMode::Fill);
+            self.layer.add_rect(rect);
+        }
+
+        let text_top = y_top + (height - title_size * PT_TO_MM) / 2.0;
+        self.text(title, title_size, MARGIN + 3.0, text_top, true, band_text());
+    }
+
+    /// Draws a `name … price` row inside the column whose left edge is `x_left`
+    /// and right edge is `right_edge`, with a run of leader dots filling the gap
+    /// between the (possibly truncated) name and the right-aligned price.
+    fn name_price_dots(
+        &self,
+        name: &str,
+        price: &str,
+        x_left: f32,
+        right_edge: f32,
+        y_top: f32,
+        size: f32,
+        bold: bool,
+    ) {
+        let pw = Pdf::text_width(price, size);
+        self.text(price, size, right_edge - pw, y_top, false, black());
+
+        let max_name_w = (right_edge - x_left) - pw - 4.0;
+        let name = ellipsize(name, size, max_name_w.max(6.0));
+        self.text(&name, size, x_left, y_top, bold, black());
+
+        // Leader dots between the name and the price.
+        let name_end = x_left + Pdf::text_width(&name, size) + 1.5;
+        let dots_end = right_edge - pw - 1.5;
+        let dot_w = Pdf::text_width(".", size).max(0.1);
+        let count = ((dots_end - name_end) / dot_w).floor();
+        if count >= 1.0 {
+            let dots: String = std::iter::repeat('.').take(count as usize).collect();
+            self.text(&dots, size, name_end, y_top, false, gray());
+        }
     }
 
     /// Draws a vertical rule at `x` mm spanning the given `y_top` range.
@@ -267,6 +323,145 @@ impl Pdf {
     }
 }
 
+// Font sizes (pt) and per-section spacing for the item lists.
+const MAIN_NAME_SIZE: f32 = 12.0;
+const MAIN_DESC_SIZE: f32 = 8.5;
+const TEXT_LINE_SIZE: f32 = 10.5;
+/// Vertical gap below each row of items, in mm.
+const ROW_GAP: f32 = 4.0;
+/// Gap after a section before the next, in mm.
+const SECTION_GAP: f32 = 7.0;
+
+/// A measured item ready to draw. Heights are computed up front (descriptions
+/// wrapped, thumbnail decoded) so rows can be laid out and paginated before
+/// anything is committed to the page.
+struct Prepared {
+    name: String,
+    price: String,
+    main: bool,
+    thumb: Option<(Vec<u8>, u32, u32)>,
+    desc_lines: Vec<String>,
+    /// Total height of the item within its column, in mm.
+    height: f32,
+}
+
+/// Height in mm of a main-course item's name + (optional) description block.
+fn main_text_block_h(desc_lines: usize) -> f32 {
+    let name_h = MAIN_NAME_SIZE * PT_TO_MM;
+    let desc_line_h = MAIN_DESC_SIZE * PT_TO_MM + 1.2;
+    name_h
+        + if desc_lines == 0 {
+            0.0
+        } else {
+            2.0 + desc_lines as f32 * desc_line_h
+        }
+}
+
+impl Prepared {
+    fn new(item: &MenuItem, main: bool, price_str: &impl Fn(f64) -> String) -> Self {
+        let price = price_str(item.price);
+        if main {
+            let thumb = item.image_path.as_deref().and_then(load_image_rgb);
+            let indent = if thumb.is_some() { THUMB + 5.0 } else { 0.0 };
+            let desc_lines: Vec<String> = item
+                .description
+                .as_deref()
+                .map(str::trim)
+                .filter(|d| !d.is_empty())
+                .map(|d| Pdf::wrap_text(d, MAIN_DESC_SIZE, COL_W - indent))
+                .unwrap_or_default();
+            let height = THUMB.max(main_text_block_h(desc_lines.len()));
+            Self { name: item.name.clone(), price, main, thumb, desc_lines, height }
+        } else {
+            Self {
+                name: item.name.clone(),
+                price,
+                main,
+                thumb: None,
+                desc_lines: Vec::new(),
+                height: TEXT_LINE_SIZE * PT_TO_MM + 2.5,
+            }
+        }
+    }
+}
+
+/// Draws a single prepared item into the column whose left edge is `col_x`,
+/// with its top at `top` mm.
+fn draw_prepared(pdf: &Pdf, p: &Prepared, col_x: f32, top: f32) {
+    let right_edge = col_x + COL_W;
+    if p.main {
+        let indent = if p.thumb.is_some() { THUMB + 5.0 } else { 0.0 };
+        let text_x = col_x + indent;
+        let block_h = main_text_block_h(p.desc_lines.len());
+
+        if let Some((rgb, w, h)) = &p.thumb {
+            pdf.image(rgb.clone(), *w, *h, col_x, top, THUMB, THUMB);
+        }
+
+        // Centre the name + description block against the (taller) thumbnail.
+        let block_top = top + (p.height - block_h) / 2.0;
+        pdf.name_price_dots(&p.name, &p.price, text_x, right_edge, block_top, MAIN_NAME_SIZE, true);
+
+        let mut dy = block_top + MAIN_NAME_SIZE * PT_TO_MM + 2.0;
+        for line in &p.desc_lines {
+            pdf.text(line, MAIN_DESC_SIZE, text_x, dy, false, gray());
+            dy += MAIN_DESC_SIZE * PT_TO_MM + 1.2;
+        }
+    } else {
+        pdf.name_price_dots(&p.name, &p.price, col_x, right_edge, top, TEXT_LINE_SIZE, false);
+    }
+}
+
+/// Renders a category: a full-width header band followed by its items in a
+/// two-column list (row-major) with a vertical divider between the columns.
+/// Handles page breaks within the list, re-drawing the divider per page.
+fn render_section(pdf: &mut Pdf, name: &str, items: &[Prepared]) {
+    if items.is_empty() {
+        return;
+    }
+    let title_size = 13.0;
+    let band_h = title_size * PT_TO_MM + 5.0;
+
+    // Row 0 pairs items 0 and 1; keep the band attached to its first row.
+    let first_row_h = items[0].height.max(items.get(1).map(|p| p.height).unwrap_or(0.0));
+    pdf.ensure(band_h + 3.0 + first_row_h);
+
+    pdf.section_band(name, pdf.y, band_h, title_size);
+    pdf.y += band_h + 3.0;
+
+    // A divider is only meaningful once a row actually uses both columns.
+    let two_cols = items.len() >= 2;
+    let mut seg_top = pdf.y;
+
+    let mut i = 0;
+    while i < items.len() {
+        let left = &items[i];
+        let right = items.get(i + 1);
+        let row_h = left.height.max(right.map(|p| p.height).unwrap_or(0.0));
+
+        if pdf.y + row_h > BOTTOM_LIMIT {
+            if two_cols {
+                pdf.vline(COL_SEP_X, seg_top, pdf.y - ROW_GAP);
+            }
+            pdf.new_page();
+            seg_top = pdf.y;
+        }
+
+        let top = pdf.y;
+        draw_prepared(pdf, left, COL_LEFT_X, top);
+        if let Some(r) = right {
+            draw_prepared(pdf, r, COL_RIGHT_X, top);
+        }
+        pdf.y += row_h + ROW_GAP;
+        i += 2;
+    }
+
+    if two_cols {
+        pdf.vline(COL_SEP_X, seg_top, pdf.y - ROW_GAP);
+    }
+    pdf.y += SECTION_GAP;
+}
+
 /// Builds the menu PDF and returns the raw bytes.
 pub fn build_menu_pdf(
     title: &str,
@@ -275,11 +470,13 @@ pub fn build_menu_pdf(
     sections: &[MenuSection],
 ) -> Result<Vec<u8>, String> {
     let (doc, page1, layer1) = PdfDocument::new(title, Mm(PAGE_W), Mm(PAGE_H), "Layer 1");
+    // Embed the bundled Noto Sans, subsetted to the glyphs actually used so the
+    // PDF stays small.
     let font = doc
-        .add_builtin_font(BuiltinFont::Helvetica)
+        .add_external_font_with_subsetting(Cursor::new(FONT_REGULAR), true)
         .map_err(|e| e.to_string())?;
     let font_bold = doc
-        .add_builtin_font(BuiltinFont::HelveticaBold)
+        .add_external_font_with_subsetting(Cursor::new(FONT_BOLD), true)
         .map_err(|e| e.to_string())?;
     let layer = doc.get_page(page1).get_layer(layer1);
 
@@ -289,14 +486,11 @@ pub fn build_menu_pdf(
         font,
         font_bold,
         y: MARGIN,
-        col: 0,
-        col_x: COL_LEFT_X,
-        content_top: MARGIN,
     };
 
     let price_str = |price: f64| format!("{} {:.2}", currency, price);
 
-    // --- Header: logo + title ---
+    // --- Header: logo + title (full width) ---
     if let Some((rgb, w, h)) = load_image_rgb(logo_path) {
         let box_w = 85.0_f32.min(CONTENT_W);
         let box_h = 24.0;
@@ -313,109 +507,22 @@ pub fn build_menu_pdf(
         pdf.y += size * PT_TO_MM * 1.2 + 8.0;
     }
 
-    // Everything below the header flows in two columns split by a divider.
-    let content_top = pdf.y;
-    pdf.begin_columns(content_top);
+    // Every non-empty category (main courses first) is rendered as a full-width
+    // header band followed by a two-column list of its items.
+    let nonempty = |s: &&MenuSection| !s.items.is_empty();
+    let ordered = sections
+        .iter()
+        .filter(nonempty)
+        .filter(|s| s.main_course)
+        .chain(sections.iter().filter(nonempty).filter(|s| !s.main_course));
 
-    // --- Main course sections (with images) ---
-    for section in sections.iter().filter(|s| s.main_course && !s.items.is_empty()) {
-        // Keep the header with at least its first item (avoids an orphan header
-        // at the foot of a column).
-        pdf.ensure(THUMB + 18.0);
-        let header_size = 15.0;
-        pdf.text(&section.name, header_size, pdf.col_x, pdf.y, true, black());
-        pdf.y += header_size * PT_TO_MM + 2.0;
-        pdf.hrule(pdf.y);
-        pdf.y += 4.0;
-
-        for item in &section.items {
-            let name_size = 12.0;
-            let desc_size = 8.5;
-
-            // Decode the thumbnail up front so the text indent and row height
-            // can account for it.
-            let thumb = item.image_path.as_deref().and_then(load_image_rgb);
-            let indent = if thumb.is_some() { THUMB + 5.0 } else { 0.0 };
-
-            // Wrap the description to the width left in the column.
-            let desc_width = COL_W - indent;
-            let desc_lines: Vec<String> = item
-                .description
-                .as_deref()
-                .map(str::trim)
-                .filter(|d| !d.is_empty())
-                .map(|d| Pdf::wrap_text(d, desc_size, desc_width))
-                .unwrap_or_default();
-
-            let name_h = name_size * PT_TO_MM;
-            let desc_line_h = desc_size * PT_TO_MM + 1.2;
-            let text_block_h = name_h
-                + if desc_lines.is_empty() {
-                    0.0
-                } else {
-                    2.0 + desc_lines.len() as f32 * desc_line_h
-                };
-            let row_h = THUMB.max(text_block_h);
-
-            pdf.ensure(row_h + 4.0);
-            let row_top = pdf.y;
-            let text_x = pdf.col_x + indent;
-            let right_edge = pdf.col_x + COL_W;
-
-            if let Some((rgb, w, h)) = thumb {
-                pdf.image(rgb, w, h, pdf.col_x, row_top, THUMB, THUMB);
-            }
-
-            // Vertically centre the name + description block against the row.
-            let block_top = row_top + (row_h - text_block_h) / 2.0;
-
-            // Right-align the price, then wrap the name to the space left of it.
-            let p = price_str(item.price);
-            let pw = Pdf::text_width(&p, name_size);
-            pdf.text(&p, name_size, right_edge - pw, block_top, false, black());
-
-            let name_width = (right_edge - text_x) - pw - 2.0;
-            let name = ellipsize(&item.name, name_size, name_width.max(8.0));
-            pdf.text(&name, name_size, text_x, block_top, true, black());
-
-            // Description below the name, in a smaller, lighter font.
-            let mut dy = block_top + name_h + 2.0;
-            for line in &desc_lines {
-                pdf.text(line, desc_size, text_x, dy, false, gray());
-                dy += desc_line_h;
-            }
-
-            pdf.y = row_top + row_h + 4.0;
-        }
-        pdf.y += 6.0;
-    }
-
-    // --- Remaining sections (text only) ---
-    for section in sections.iter().filter(|s| !s.main_course && !s.items.is_empty()) {
-        pdf.ensure(18.0);
-        let header_size = 13.0;
-        pdf.text(&section.name, header_size, pdf.col_x, pdf.y, true, black());
-        pdf.y += header_size * PT_TO_MM + 2.0;
-        pdf.hrule(pdf.y);
-        pdf.y += 3.5;
-
-        for item in &section.items {
-            let line_size = 10.5;
-            let line_h = line_size * PT_TO_MM + 2.5;
-            pdf.ensure(line_h);
-            let right_edge = pdf.col_x + COL_W;
-
-            let p = price_str(item.price);
-            let pw = Pdf::text_width(&p, line_size);
-            pdf.text(&p, line_size, right_edge - pw, pdf.y, false, black());
-
-            let name_width = COL_W - pw - 2.0;
-            let name = ellipsize(&item.name, line_size, name_width.max(8.0));
-            pdf.text(&name, line_size, pdf.col_x, pdf.y, false, black());
-
-            pdf.y += line_h;
-        }
-        pdf.y += 6.0;
+    for section in ordered {
+        let prepared: Vec<Prepared> = section
+            .items
+            .iter()
+            .map(|it| Prepared::new(it, section.main_course, &price_str))
+            .collect();
+        render_section(&mut pdf, &section.name, &prepared);
     }
 
     pdf.doc.save_to_bytes().map_err(|e| e.to_string())
@@ -467,4 +574,6 @@ mod tests {
         assert!(bytes.starts_with(b"%PDF"));
     }
 }
+
+
 
