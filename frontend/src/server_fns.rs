@@ -162,7 +162,7 @@ async fn generate_sales_report_db(
 #[server]
 pub async fn fetch_categories() -> Result<Vec<Category>, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    let categories = sqlx::query_as::<_, Category>("SELECT * FROM categories ORDER BY name")
+    let categories = sqlx::query_as::<_, Category>("SELECT * FROM categories ORDER BY sort_order, name")
         .fetch_all(&pool)
         .await
         .map_err(db_err)?;
@@ -179,20 +179,93 @@ pub async fn create_category(
     let id = Uuid::new_v4();
     let now = Utc::now();
     let main_course = main_course.unwrap_or(false);
+    // Append new categories at the end of the user-defined order.
+    let next_order: i64 =
+        sqlx::query_scalar("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM categories")
+            .fetch_one(&pool)
+            .await
+            .map_err(db_err)?;
     let category = sqlx::query_as::<_, Category>(
-        "INSERT INTO categories (id, name, description, main_course, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING *",
+        "INSERT INTO categories (id, name, description, main_course, sort_order, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING *",
     )
     .bind(id)
     .bind(&name)
     .bind(&description)
     .bind(main_course)
+    .bind(next_order)
     .bind(now)
     .bind(now)
     .fetch_one(&pool)
     .await
     .map_err(db_err)?;
     Ok(category)
+}
+
+/// Moves a category one position up or down in the user-defined order by
+/// swapping its `sort_order` with its nearest neighbour. No-op at the ends.
+#[server]
+pub async fn move_category(id: Uuid, up: bool) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+
+    let current = sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ?")
+        .bind(id)
+        .fetch_optional(&pool)
+        .await
+        .map_err(db_err)?
+        .ok_or_else(|| not_found("Category not found"))?;
+
+    // Find the adjacent category in (sort_order, name) order, using the same
+    // tie-break as fetch_categories so the swap matches the displayed order.
+    let neighbor = if up {
+        sqlx::query_as::<_, Category>(
+            "SELECT * FROM categories
+             WHERE sort_order < ? OR (sort_order = ? AND name < ?)
+             ORDER BY sort_order DESC, name DESC LIMIT 1",
+        )
+    } else {
+        sqlx::query_as::<_, Category>(
+            "SELECT * FROM categories
+             WHERE sort_order > ? OR (sort_order = ? AND name > ?)
+             ORDER BY sort_order ASC, name ASC LIMIT 1",
+        )
+    }
+    .bind(current.sort_order)
+    .bind(current.sort_order)
+    .bind(&current.name)
+    .fetch_optional(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let Some(neighbor) = neighbor else {
+        return Ok(()); // already at the top/bottom
+    };
+
+    // Swap the two order values. If they happen to be equal (legacy data),
+    // nudge them apart so the move still takes effect.
+    let (cur_new, nb_new) = if current.sort_order == neighbor.sort_order {
+        if up {
+            (neighbor.sort_order - 1, neighbor.sort_order)
+        } else {
+            (neighbor.sort_order + 1, neighbor.sort_order)
+        }
+    } else {
+        (neighbor.sort_order, current.sort_order)
+    };
+
+    sqlx::query("UPDATE categories SET sort_order = ? WHERE id = ?")
+        .bind(cur_new)
+        .bind(current.id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+    sqlx::query("UPDATE categories SET sort_order = ? WHERE id = ?")
+        .bind(nb_new)
+        .bind(neighbor.id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+    Ok(())
 }
 
 #[server]
@@ -257,9 +330,10 @@ pub async fn generate_menu_pdf(title: String) -> Result<String, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     require_admin(&pool).await?;
 
-    // Main courses first, then the rest; stable by name within each group.
+    // User-defined order; the PDF builder still groups main courses first,
+    // preserving this order within each group.
     let categories = sqlx::query_as::<_, Category>(
-        "SELECT * FROM categories ORDER BY main_course DESC, name",
+        "SELECT * FROM categories ORDER BY sort_order, name",
     )
     .fetch_all(&pool)
     .await

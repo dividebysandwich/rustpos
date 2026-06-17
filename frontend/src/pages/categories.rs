@@ -141,6 +141,14 @@ pub fn CategoriesPage() -> impl IntoView {
         set_creating_category.set(true); set_editing_category.set(None);
     };
 
+    let do_move = move |id: Uuid, up: bool| {
+        leptos::task::spawn_local(async move {
+            if move_category(id, up).await.is_ok() {
+                set_reload.update(|v| *v += 1);
+            }
+        });
+    };
+
     let (generating_menu, set_generating_menu) = signal(false);
     let download_menu = move |_| {
         set_generating_menu.set(true);
@@ -242,6 +250,14 @@ pub fn CategoriesPage() -> impl IntoView {
                                     <td>{category.description.clone().unwrap_or_else(|| "-".to_string())}</td>
                                     <td>{if is_main { "✓" } else { "" }}</td>
                                     <td class="data-table-actions">
+                                        <button class="btn-small" title="↑" on:click=move |_| do_move(category_id, true)
+                                            disabled=move || editing_category.get().is_some() || creating_category.get()
+                                                || categories.get().first().map(|c| c.id) == Some(category_id)
+                                        >"↑"</button>
+                                        <button class="btn-small" title="↓" on:click=move |_| do_move(category_id, false)
+                                            disabled=move || editing_category.get().is_some() || creating_category.get()
+                                                || categories.get().last().map(|c| c.id) == Some(category_id)
+                                        >"↓"</button>
                                         <button class="btn-small" on:click=move |_| start_edit(category_clone.clone())
                                             disabled=move || editing_category.get().is_some() || creating_category.get()
                                         >{move || i18n.get().t("general.edit")}</button>

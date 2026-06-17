@@ -104,6 +104,28 @@ async fn main() {
 
     // Migrations for new columns
     sqlx::query("ALTER TABLE categories ADD COLUMN main_course BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();
+    sqlx::query("ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0").execute(&db).await.ok();
+    // One-time backfill: when no category has an assigned order yet (every row
+    // still at the default 0), seed a stable initial order alphabetically by
+    // name. New/assigned categories always have sort_order >= 1, so this runs
+    // only once and never clobbers a user-defined order.
+    let categories_unordered: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM categories WHERE sort_order != 0")
+            .fetch_one(&db)
+            .await
+            .unwrap_or(0);
+    if categories_unordered == 0 {
+        sqlx::query(
+            r#"UPDATE categories SET sort_order = (
+                SELECT COUNT(*) FROM categories c2
+                WHERE c2.name < categories.name
+                   OR (c2.name = categories.name AND c2.id <= categories.id)
+            )"#,
+        )
+        .execute(&db)
+        .await
+        .ok();
+    }
     sqlx::query("ALTER TABLE items ADD COLUMN image_path TEXT").execute(&db).await.ok();
     sqlx::query("ALTER TABLE items ADD COLUMN stock_quantity INTEGER").execute(&db).await.ok();
     sqlx::query("ALTER TABLE items ADD COLUMN kitchen_item BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();

@@ -11,6 +11,9 @@ pub struct Category {
     /// Categories flagged as main courses are highlighted on the printed menu
     /// sheet (shown with item images), as opposed to plain text-only sections.
     pub main_course: bool,
+    /// User-defined display position. Lower values are shown first on the sales
+    /// screen and printed menu; ties fall back to name.
+    pub sort_order: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
