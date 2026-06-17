@@ -2242,13 +2242,21 @@ pub async fn get_system_ip_addresses() -> Result<Vec<String>, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     require_admin(&pool).await?;
 
+    // Same port resolution as the server bind in main.rs.
+    let port = std::env::var("RUSTPOS_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(3000);
+
     let mut addrs: Vec<(bool, String)> = if_addrs::get_if_addrs()
         .map_err(db_err)?
         .into_iter()
         .filter(|iface| !iface.is_loopback())
         .map(|iface| {
             let ip = iface.ip();
-            (ip.is_ipv6(), format!("{} ({})", ip, iface.name))
+            // IPv6 addresses must be bracketed in a URL.
+            let host = if ip.is_ipv6() { format!("[{}]", ip) } else { ip.to_string() };
+            (ip.is_ipv6(), format!("http://{}:{} ({})", host, port, iface.name))
         })
         .collect();
     // IPv4 first (is_ipv6 == false), then by string for stable ordering.
