@@ -414,15 +414,12 @@ pub fn ItemsPage() -> impl IntoView {
                     <th></th>
                 </tr></thead>
                 <tbody>
-                    <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone(), i.stock_quantity, i.kitchen_item) let:item>
+                    <For each=move || items.get() key=|i| (i.id, i.name.clone(), i.description.clone(), i.price.to_bits(), i.in_stock, i.sku.clone(), i.category_id, i.image_path.clone(), i.stock_quantity, i.kitchen_item) let:item>
                         {
                             let item_clone = item.clone();
                             let item_id = item.id;
                             let item_name = item.name.clone();
-                            let category_name = categories.get().iter()
-                                .find(|c| c.id == item.category_id)
-                                .map(|c| c.name.clone())
-                                .unwrap_or_else(|| i18n.get().t("general.unknown"));
+                            let item_category_id = item.category_id;
                             let stock_display = match item.stock_quantity {
                                 Some(q) => format!("{}", q),
                                 None => if item.in_stock { i18n.get().t("items.endless_short") } else { i18n.get().t("items.out") },
@@ -434,7 +431,10 @@ pub fn ItemsPage() -> impl IntoView {
                                     </td>
                                     <td>{item.name.clone()}</td>
                                     <td>{format!("{} {:.2}", &currency.get(), item.price)}</td>
-                                    <td>{category_name}</td>
+                                    <td>{move || categories.get().iter()
+                                        .find(|c| c.id == item_category_id)
+                                        .map(|c| c.name.clone())
+                                        .unwrap_or_else(|| i18n.get().t("general.unknown"))}</td>
                                     <td>{stock_display}</td>
                                     <td>{if item.kitchen_item { i18n.get().t("general.yes") } else { "-".to_string() }}</td>
                                     <td class="data-table-actions">
