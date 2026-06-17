@@ -64,9 +64,6 @@ const COL_LEFT_X: f32 = MARGIN;
 const COL_RIGHT_X: f32 = MARGIN + COL_W + GUTTER;
 const COL_SEP_X: f32 = MARGIN + COL_W + GUTTER / 2.0;
 
-/// Side length of the square thumbnail used for main-course items.
-const THUMB: f32 = 22.0;
-
 /// Points to millimetres (1pt = 1/72 inch).
 const PT_TO_MM: f32 = 25.4 / 72.0;
 
@@ -323,143 +320,238 @@ impl Pdf {
     }
 }
 
-// Font sizes (pt) and per-section spacing for the item lists.
-const MAIN_NAME_SIZE: f32 = 12.0;
-const MAIN_DESC_SIZE: f32 = 8.5;
-const TEXT_LINE_SIZE: f32 = 10.5;
-/// Vertical gap below each row of items, in mm.
-const ROW_GAP: f32 = 4.0;
-/// Gap after a section before the next, in mm.
-const SECTION_GAP: f32 = 7.0;
+// Base font sizes (pt), thumbnail size and spacing (mm) at scale 1.0. The whole
+// menu is uniformly scaled down (never up) by `Style::new` until it fits on a
+// single page; spacing is deliberately tight, more so between main-course rows.
+const BASE_DOC_TITLE: f32 = 26.0;
+const BASE_TITLE: f32 = 13.0;
+const BASE_MAIN_NAME: f32 = 12.0;
+const BASE_MAIN_DESC: f32 = 8.5;
+const BASE_TEXT_LINE: f32 = 10.5;
+const BASE_THUMB: f32 = 22.0;
+const BASE_THUMB_GAP: f32 = 5.0;
+const BASE_BAND_GAP: f32 = 2.5;
+const BASE_MAIN_ROW_GAP: f32 = 1.5;
+const BASE_TEXT_ROW_GAP: f32 = 2.5;
+const BASE_SECTION_GAP: f32 = 5.0;
+const BASE_DESC_LEAD: f32 = 1.0;
+const BASE_NAME_DESC_GAP: f32 = 1.5;
+const BASE_TEXT_LINE_EXTRA: f32 = 2.0;
+/// Floor for the auto-fit scale; below this text gets unreadable, so the menu is
+/// allowed to spill onto a second page instead.
+const MIN_SCALE: f32 = 0.62;
 
-/// A measured item ready to draw. Heights are computed up front (descriptions
-/// wrapped, thumbnail decoded) so rows can be laid out and paginated before
-/// anything is committed to the page.
-struct Prepared {
-    name: String,
-    price: String,
-    main: bool,
-    thumb: Option<(Vec<u8>, u32, u32)>,
-    desc_lines: Vec<String>,
-    /// Total height of the item within its column, in mm.
-    height: f32,
+/// All scalable sizes for one render, derived from a single `scale` factor.
+struct Style {
+    scale: f32,
+    doc_title: f32,
+    title: f32,
+    main_name: f32,
+    main_desc: f32,
+    text_line: f32,
+    thumb: f32,
+    thumb_gap: f32,
+    band_h: f32,
+    band_gap: f32,
+    main_row_gap: f32,
+    text_row_gap: f32,
+    section_gap: f32,
+    desc_lead: f32,
+    name_desc_gap: f32,
+    text_line_extra: f32,
 }
 
-/// Height in mm of a main-course item's name + (optional) description block.
-fn main_text_block_h(desc_lines: usize) -> f32 {
-    let name_h = MAIN_NAME_SIZE * PT_TO_MM;
-    let desc_line_h = MAIN_DESC_SIZE * PT_TO_MM + 1.2;
-    name_h
-        + if desc_lines == 0 {
-            0.0
-        } else {
-            2.0 + desc_lines as f32 * desc_line_h
-        }
-}
-
-impl Prepared {
-    fn new(item: &MenuItem, main: bool, price_str: &impl Fn(f64) -> String) -> Self {
-        let price = price_str(item.price);
-        if main {
-            let thumb = item.image_path.as_deref().and_then(load_image_rgb);
-            let indent = if thumb.is_some() { THUMB + 5.0 } else { 0.0 };
-            let desc_lines: Vec<String> = item
-                .description
-                .as_deref()
-                .map(str::trim)
-                .filter(|d| !d.is_empty())
-                .map(|d| Pdf::wrap_text(d, MAIN_DESC_SIZE, COL_W - indent))
-                .unwrap_or_default();
-            let height = THUMB.max(main_text_block_h(desc_lines.len()));
-            Self { name: item.name.clone(), price, main, thumb, desc_lines, height }
-        } else {
-            Self {
-                name: item.name.clone(),
-                price,
-                main,
-                thumb: None,
-                desc_lines: Vec::new(),
-                height: TEXT_LINE_SIZE * PT_TO_MM + 2.5,
-            }
+impl Style {
+    fn new(scale: f32) -> Self {
+        let title = BASE_TITLE * scale;
+        Self {
+            scale,
+            doc_title: BASE_DOC_TITLE * scale,
+            title,
+            main_name: BASE_MAIN_NAME * scale,
+            main_desc: BASE_MAIN_DESC * scale,
+            text_line: BASE_TEXT_LINE * scale,
+            thumb: BASE_THUMB * scale,
+            thumb_gap: BASE_THUMB_GAP * scale,
+            band_h: title * PT_TO_MM + 4.0 * scale,
+            band_gap: BASE_BAND_GAP * scale,
+            main_row_gap: BASE_MAIN_ROW_GAP * scale,
+            text_row_gap: BASE_TEXT_ROW_GAP * scale,
+            section_gap: BASE_SECTION_GAP * scale,
+            desc_lead: BASE_DESC_LEAD * scale,
+            name_desc_gap: BASE_NAME_DESC_GAP * scale,
+            text_line_extra: BASE_TEXT_LINE_EXTRA * scale,
         }
     }
 }
 
-/// Draws a single prepared item into the column whose left edge is `col_x`,
-/// with its top at `top` mm.
-fn draw_prepared(pdf: &Pdf, p: &Prepared, col_x: f32, top: f32) {
-    let right_edge = col_x + COL_W;
-    if p.main {
-        let indent = if p.thumb.is_some() { THUMB + 5.0 } else { 0.0 };
-        let text_x = col_x + indent;
-        let block_h = main_text_block_h(p.desc_lines.len());
+/// An item with its image decoded once. Heights are recomputed per `Style`
+/// during the scale search, but the (expensive) image decode is not repeated.
+struct RawItem {
+    name: String,
+    price: String,
+    desc: Option<String>,
+    thumb: Option<(Vec<u8>, u32, u32)>,
+    main: bool,
+}
 
-        if let Some((rgb, w, h)) = &p.thumb {
-            pdf.image(rgb.clone(), *w, *h, col_x, top, THUMB, THUMB);
+struct RawSection {
+    name: String,
+    main: bool,
+    items: Vec<RawItem>,
+}
+
+impl RawItem {
+    fn new(item: &MenuItem, main: bool, price_str: &impl Fn(f64) -> String) -> Self {
+        let thumb = if main {
+            item.image_path.as_deref().and_then(load_image_rgb)
+        } else {
+            None
+        };
+        let desc = if main {
+            item.description
+                .as_deref()
+                .map(str::trim)
+                .filter(|d| !d.is_empty())
+                .map(str::to_string)
+        } else {
+            None
+        };
+        Self { name: item.name.clone(), price: price_str(item.price), desc, thumb, main }
+    }
+}
+
+/// Height in mm of a main-course item's name + (optional) wrapped description.
+fn main_block_h(lines: usize, st: &Style) -> f32 {
+    let name_h = st.main_name * PT_TO_MM;
+    let desc_line_h = st.main_desc * PT_TO_MM + st.desc_lead;
+    name_h
+        + if lines == 0 {
+            0.0
+        } else {
+            st.name_desc_gap + lines as f32 * desc_line_h
+        }
+}
+
+/// Height in mm of a single item within its column at the given style.
+fn item_height(it: &RawItem, st: &Style) -> f32 {
+    if it.main {
+        let indent = if it.thumb.is_some() { st.thumb + st.thumb_gap } else { 0.0 };
+        let lines = it
+            .desc
+            .as_deref()
+            .map(|d| Pdf::wrap_text(d, st.main_desc, COL_W - indent).len())
+            .unwrap_or(0);
+        let block = main_block_h(lines, st);
+        if it.thumb.is_some() { st.thumb.max(block) } else { block }
+    } else {
+        st.text_line * PT_TO_MM + st.text_line_extra
+    }
+}
+
+/// Height in mm a section occupies (band + two-column rows + trailing gap).
+fn section_height(sec: &RawSection, st: &Style) -> f32 {
+    let mut h = st.band_h + st.band_gap;
+    let row_gap = if sec.main { st.main_row_gap } else { st.text_row_gap };
+    let mut i = 0;
+    while i < sec.items.len() {
+        let row_h = item_height(&sec.items[i], st)
+            .max(sec.items.get(i + 1).map(|it| item_height(it, st)).unwrap_or(0.0));
+        h += row_h + row_gap;
+        i += 2;
+    }
+    h + st.section_gap
+}
+
+/// Height in mm of the logo + title header at the given style.
+fn header_height(logo_h: Option<f32>, st: &Style) -> f32 {
+    let mut h = 0.0;
+    if let Some(lh) = logo_h {
+        h += lh + 6.0;
+    }
+    h += st.doc_title * PT_TO_MM * 1.2 + 8.0 * st.scale;
+    h
+}
+
+/// Draws a single item into the column whose left edge is `col_x`, top at `top`.
+fn draw_item(pdf: &Pdf, it: &RawItem, col_x: f32, top: f32, st: &Style) {
+    let right_edge = col_x + COL_W;
+    if it.main {
+        let indent = if it.thumb.is_some() { st.thumb + st.thumb_gap } else { 0.0 };
+        let text_x = col_x + indent;
+        let desc_lines = it
+            .desc
+            .as_deref()
+            .map(|d| Pdf::wrap_text(d, st.main_desc, COL_W - indent))
+            .unwrap_or_default();
+        let block_h = main_block_h(desc_lines.len(), st);
+        let h = if it.thumb.is_some() { st.thumb.max(block_h) } else { block_h };
+
+        if let Some((rgb, w, hh)) = &it.thumb {
+            pdf.image(rgb.clone(), *w, *hh, col_x, top, st.thumb, st.thumb);
         }
 
         // Centre the name + description block against the (taller) thumbnail.
-        let block_top = top + (p.height - block_h) / 2.0;
-        pdf.name_price_dots(&p.name, &p.price, text_x, right_edge, block_top, MAIN_NAME_SIZE, true);
+        let block_top = top + (h - block_h) / 2.0;
+        pdf.name_price_dots(&it.name, &it.price, text_x, right_edge, block_top, st.main_name, true);
 
-        let mut dy = block_top + MAIN_NAME_SIZE * PT_TO_MM + 2.0;
-        for line in &p.desc_lines {
-            pdf.text(line, MAIN_DESC_SIZE, text_x, dy, false, gray());
-            dy += MAIN_DESC_SIZE * PT_TO_MM + 1.2;
+        let mut dy = block_top + st.main_name * PT_TO_MM + st.name_desc_gap;
+        for line in &desc_lines {
+            pdf.text(line, st.main_desc, text_x, dy, false, gray());
+            dy += st.main_desc * PT_TO_MM + st.desc_lead;
         }
     } else {
-        pdf.name_price_dots(&p.name, &p.price, col_x, right_edge, top, TEXT_LINE_SIZE, false);
+        pdf.name_price_dots(&it.name, &it.price, col_x, right_edge, top, st.text_line, false);
     }
 }
 
 /// Renders a category: a full-width header band followed by its items in a
 /// two-column list (row-major) with a vertical divider between the columns.
 /// Handles page breaks within the list, re-drawing the divider per page.
-fn render_section(pdf: &mut Pdf, name: &str, items: &[Prepared]) {
-    if items.is_empty() {
+fn render_section(pdf: &mut Pdf, sec: &RawSection, st: &Style) {
+    if sec.items.is_empty() {
         return;
     }
-    let title_size = 13.0;
-    let band_h = title_size * PT_TO_MM + 5.0;
 
-    // Row 0 pairs items 0 and 1; keep the band attached to its first row.
-    let first_row_h = items[0].height.max(items.get(1).map(|p| p.height).unwrap_or(0.0));
-    pdf.ensure(band_h + 3.0 + first_row_h);
+    // Keep the band attached to its first row.
+    let first_row_h = item_height(&sec.items[0], st)
+        .max(sec.items.get(1).map(|it| item_height(it, st)).unwrap_or(0.0));
+    pdf.ensure(st.band_h + st.band_gap + first_row_h);
 
-    pdf.section_band(name, pdf.y, band_h, title_size);
-    pdf.y += band_h + 3.0;
+    pdf.section_band(&sec.name, pdf.y, st.band_h, st.title);
+    pdf.y += st.band_h + st.band_gap;
 
-    // A divider is only meaningful once a row actually uses both columns.
-    let two_cols = items.len() >= 2;
+    let row_gap = if sec.main { st.main_row_gap } else { st.text_row_gap };
+    let two_cols = sec.items.len() >= 2;
     let mut seg_top = pdf.y;
 
     let mut i = 0;
-    while i < items.len() {
-        let left = &items[i];
-        let right = items.get(i + 1);
-        let row_h = left.height.max(right.map(|p| p.height).unwrap_or(0.0));
+    while i < sec.items.len() {
+        let left = &sec.items[i];
+        let right = sec.items.get(i + 1);
+        let row_h = item_height(left, st).max(right.map(|it| item_height(it, st)).unwrap_or(0.0));
 
         if pdf.y + row_h > BOTTOM_LIMIT {
             if two_cols {
-                pdf.vline(COL_SEP_X, seg_top, pdf.y - ROW_GAP);
+                pdf.vline(COL_SEP_X, seg_top, pdf.y - row_gap);
             }
             pdf.new_page();
             seg_top = pdf.y;
         }
 
         let top = pdf.y;
-        draw_prepared(pdf, left, COL_LEFT_X, top);
+        draw_item(pdf, left, COL_LEFT_X, top, st);
         if let Some(r) = right {
-            draw_prepared(pdf, r, COL_RIGHT_X, top);
+            draw_item(pdf, r, COL_RIGHT_X, top, st);
         }
-        pdf.y += row_h + ROW_GAP;
+        pdf.y += row_h + row_gap;
         i += 2;
     }
 
     if two_cols {
-        pdf.vline(COL_SEP_X, seg_top, pdf.y - ROW_GAP);
+        pdf.vline(COL_SEP_X, seg_top, pdf.y - row_gap);
     }
-    pdf.y += SECTION_GAP;
+    pdf.y += st.section_gap;
 }
 
 /// Builds the menu PDF and returns the raw bytes.
@@ -490,39 +582,59 @@ pub fn build_menu_pdf(
 
     let price_str = |price: f64| format!("{} {:.2}", currency, price);
 
-    // --- Header: logo + title (full width) ---
-    if let Some((rgb, w, h)) = load_image_rgb(logo_path) {
+    // Decode the logo once and note the height it will occupy.
+    let logo = load_image_rgb(logo_path);
+    let logo_h = logo.as_ref().map(|(_, w, h)| {
         let box_w = 85.0_f32.min(CONTENT_W);
-        let box_h = 24.0;
-        let drawn_h = (box_w / (w as f32 / h as f32)).min(box_h);
-        let x = MARGIN + (CONTENT_W - box_w) / 2.0;
-        pdf.image(rgb, w, h, x, pdf.y, box_w, box_h);
-        pdf.y += drawn_h + 6.0;
-    }
-    {
-        let size = 26.0;
-        let tw = Pdf::text_width(title, size);
-        let x = (MARGIN + (CONTENT_W - tw) / 2.0).max(MARGIN);
-        pdf.text(title, size, x, pdf.y, true, black());
-        pdf.y += size * PT_TO_MM * 1.2 + 8.0;
-    }
+        (box_w / (*w as f32 / *h as f32)).min(24.0)
+    });
 
-    // Every non-empty category (main courses first) is rendered as a full-width
-    // header band followed by a two-column list of its items.
+    // Build the categories once (main courses first), decoding images up front.
     let nonempty = |s: &&MenuSection| !s.items.is_empty();
-    let ordered = sections
+    let raw: Vec<RawSection> = sections
         .iter()
         .filter(nonempty)
         .filter(|s| s.main_course)
-        .chain(sections.iter().filter(nonempty).filter(|s| !s.main_course));
+        .chain(sections.iter().filter(nonempty).filter(|s| !s.main_course))
+        .map(|s| RawSection {
+            name: s.name.clone(),
+            main: s.main_course,
+            items: s.items.iter().map(|it| RawItem::new(it, s.main_course, &price_str)).collect(),
+        })
+        .collect();
 
-    for section in ordered {
-        let prepared: Vec<Prepared> = section
-            .items
-            .iter()
-            .map(|it| Prepared::new(it, section.main_course, &price_str))
-            .collect();
-        render_section(&mut pdf, &section.name, &prepared);
+    // Pick the largest scale (<= 1.0) at which the whole menu fits one page.
+    let avail = BOTTOM_LIMIT - MARGIN;
+    let mut scale = 1.0_f32;
+    loop {
+        let st = Style::new(scale);
+        // The last section's trailing gap need not fit on the page.
+        let total = header_height(logo_h, &st)
+            + raw.iter().map(|s| section_height(s, &st)).sum::<f32>()
+            - st.section_gap;
+        if total <= avail || scale <= MIN_SCALE {
+            break;
+        }
+        scale -= 0.02;
+    }
+    let st = Style::new(scale.max(MIN_SCALE));
+
+    // --- Header: logo + title (full width) ---
+    if let Some((rgb, w, h)) = logo {
+        let box_w = 85.0_f32.min(CONTENT_W);
+        let x = MARGIN + (CONTENT_W - box_w) / 2.0;
+        pdf.image(rgb, w, h, x, pdf.y, box_w, 24.0);
+        pdf.y += logo_h.unwrap_or(0.0) + 6.0;
+    }
+    {
+        let tw = Pdf::text_width(title, st.doc_title);
+        let x = (MARGIN + (CONTENT_W - tw) / 2.0).max(MARGIN);
+        pdf.text(title, st.doc_title, x, pdf.y, true, black());
+        pdf.y += st.doc_title * PT_TO_MM * 1.2 + 8.0 * st.scale;
+    }
+
+    for section in &raw {
+        render_section(&mut pdf, section, &st);
     }
 
     pdf.doc.save_to_bytes().map_err(|e| e.to_string())
@@ -574,6 +686,7 @@ mod tests {
         assert!(bytes.starts_with(b"%PDF"));
     }
 }
+
 
 
 
