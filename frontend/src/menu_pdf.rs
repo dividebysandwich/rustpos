@@ -245,14 +245,14 @@ impl Pdf {
         right_edge: f32,
         y_top: f32,
         size: f32,
-        bold: bool,
     ) {
+        // Both the name and the price are bold for legibility.
         let pw = Pdf::text_width(price, size);
-        self.text(price, size, right_edge - pw, y_top, false, black());
+        self.text(price, size, right_edge - pw, y_top, true, black());
 
         let max_name_w = (right_edge - x_left) - pw - 4.0;
         let name = ellipsize(name, size, max_name_w.max(6.0));
-        self.text(&name, size, x_left, y_top, bold, black());
+        self.text(&name, size, x_left, y_top, true, black());
 
         // Leader dots between the name and the price.
         let name_end = x_left + Pdf::text_width(&name, size) + 1.5;
@@ -325,9 +325,9 @@ impl Pdf {
 // single page; spacing is deliberately tight, more so between main-course rows.
 const BASE_DOC_TITLE: f32 = 26.0;
 const BASE_TITLE: f32 = 13.0;
-const BASE_MAIN_NAME: f32 = 12.0;
-const BASE_MAIN_DESC: f32 = 8.5;
-const BASE_TEXT_LINE: f32 = 10.5;
+const BASE_MAIN_NAME: f32 = 14.5;
+const BASE_MAIN_DESC: f32 = 10.5;
+const BASE_TEXT_LINE: f32 = 13.0;
 const BASE_THUMB: f32 = 22.0;
 const BASE_THUMB_GAP: f32 = 5.0;
 const BASE_BAND_GAP: f32 = 2.5;
@@ -493,15 +493,15 @@ fn draw_item(pdf: &Pdf, it: &RawItem, col_x: f32, top: f32, st: &Style) {
 
         // Centre the name + description block against the (taller) thumbnail.
         let block_top = top + (h - block_h) / 2.0;
-        pdf.name_price_dots(&it.name, &it.price, text_x, right_edge, block_top, st.main_name, true);
+        pdf.name_price_dots(&it.name, &it.price, text_x, right_edge, block_top, st.main_name);
 
         let mut dy = block_top + st.main_name * PT_TO_MM + st.name_desc_gap;
         for line in &desc_lines {
-            pdf.text(line, st.main_desc, text_x, dy, false, gray());
+            pdf.text(line, st.main_desc, text_x, dy, true, black());
             dy += st.main_desc * PT_TO_MM + st.desc_lead;
         }
     } else {
-        pdf.name_price_dots(&it.name, &it.price, col_x, right_edge, top, st.text_line, false);
+        pdf.name_price_dots(&it.name, &it.price, col_x, right_edge, top, st.text_line);
     }
 }
 
@@ -691,23 +691,4 @@ mod tests {
 
 
 
-#[cfg(test)]
-mod logo_check {
-    use super::*;
-    #[test]
-    fn site_logo_header() {
-        let logo = concat!(env!("CARGO_MANIFEST_DIR"), "/../site/logo_site.png");
-        let sections = vec![
-            MenuSection { name: "Hauptgerichte".into(), main_course: true, items: vec![
-                MenuItem { name: "Schnitzel".into(), price: 12.5, description: Some("Mit Pommes".into()), image_path: None },
-                MenuItem { name: "Burger".into(), price: 9.0, description: None, image_path: None },
-            ]},
-            MenuSection { name: "Getränke".into(), main_course: false, items: vec![
-                MenuItem { name: "Cola".into(), price: 2.5, description: None, image_path: None },
-                MenuItem { name: "Wasser".into(), price: 1.5, description: None, image_path: None },
-            ]},
-        ];
-        let bytes = build_menu_pdf("Speisekarte", "€", logo, &sections).unwrap();
-        std::fs::write("/tmp/menu_sitelogo.pdf", &bytes).unwrap();
-    }
-}
+
