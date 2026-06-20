@@ -1,8 +1,15 @@
 use leptos::prelude::*;
 use uuid::Uuid;
 
+use crate::i18n::I18n;
 use crate::models::TransactionItemDetail;
 use crate::server_fns::fetch_transaction_details;
+
+/// Looks up a label and strips the trailing `": "` that the shared sale keys
+/// carry, so it fits the display's separate label/value columns.
+fn label(i18n: &I18n, key: &str) -> String {
+    i18n.t(key).trim_end_matches([' ', ':']).to_string()
+}
 
 #[cfg(target_arch = "wasm32")]
 fn setup_display_ws(set_msg: WriteSignal<String>) {
@@ -83,6 +90,7 @@ fn scroll_display_to_bottom() {
 #[component]
 pub fn DisplayPage() -> impl IntoView {
     let currency = expect_context::<RwSignal<String>>();
+    let i18n = expect_context::<RwSignal<I18n>>();
     let (items, set_items) = signal(Vec::<TransactionItemDetail>::new());
     let (total, set_total) = signal(0.0f64);
     // Cash tendered and change due; populated once the sale is closed.
@@ -189,18 +197,18 @@ pub fn DisplayPage() -> impl IntoView {
                     </For>
                 </div>
                 <div class="display-total">
-                    <span>"Total"</span>
+                    <span>{move || label(&i18n.get(), "sale.total")}</span>
                     <span>{move || format!("{}{:.2}", currency.get(), total.get())}</span>
                 </div>
                 <Show when=move || paid.get().is_some() fallback=|| ()>
                     <div class="display-paid">
-                        <span>"Paid"</span>
+                        <span>{move || label(&i18n.get(), "sale.cash")}</span>
                         <span>{move || format!("{}{:.2}", currency.get(), paid.get().unwrap_or(0.0))}</span>
                     </div>
                 </Show>
                 <Show when=move || change.get().is_some() fallback=|| ()>
                     <div class="display-change">
-                        <span>"Change"</span>
+                        <span>{move || label(&i18n.get(), "sale.change")}</span>
                         <span>{move || format!("{}{:.2}", currency.get(), change.get().unwrap_or(0.0))}</span>
                     </div>
                 </Show>
