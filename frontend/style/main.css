@@ -2911,6 +2911,35 @@ button:focus-visible {
     letter-spacing: 0.05em;
 }
 
+.display-paid,
+.display-change {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.9rem 2rem;
+    font-size: 2.5rem;
+    font-weight: 400;
+    background: var(--vfd-panel);
+    border-top: 1px solid var(--vfd-border);
+    flex-shrink: 0;
+    color: var(--vfd-bright);
+    text-shadow: 0 0 12px var(--vfd-glow-strong), 0 0 24px var(--vfd-glow);
+}
+
+.display-paid span:first-child,
+.display-change span:first-child {
+    font-family: 'DotMatrix', 'Consolas', 'Courier New', monospace;
+    text-transform: uppercase;
+    font-size: 1.8rem;
+    color: var(--vfd);
+}
+
+.display-paid span:last-child,
+.display-change span:last-child {
+    font-family: 'DSEG7', 'Consolas', 'Courier New', monospace;
+    letter-spacing: 0.05em;
+}
+
 @media (max-width: 768px) {
     .display-items {
         padding: 1rem;
@@ -2932,5 +2961,14 @@ button:focus-visible {
     }
     .display-total span:first-child {
         font-size: 1.8rem;
+    }
+    .display-paid,
+    .display-change {
+        padding: 0.6rem 1rem;
+        font-size: 1.8rem;
+    }
+    .display-paid span:first-child,
+    .display-change span:first-child {
+        font-size: 1.4rem;
     }
 }

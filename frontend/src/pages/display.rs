@@ -85,6 +85,9 @@ pub fn DisplayPage() -> impl IntoView {
     let currency = expect_context::<RwSignal<String>>();
     let (items, set_items) = signal(Vec::<TransactionItemDetail>::new());
     let (total, set_total) = signal(0.0f64);
+    // Cash tendered and change due; populated once the sale is closed.
+    let (paid, set_paid) = signal(Option::<f64>::None);
+    let (change, set_change) = signal(Option::<f64>::None);
     let (active, set_active) = signal(false);
     let (ws_msg, set_ws_msg) = signal(String::new());
     #[allow(unused_variables)]
@@ -110,6 +113,9 @@ pub fn DisplayPage() -> impl IntoView {
                     if let Ok(details) = fetch_transaction_details(id).await {
                         set_items.set(details.items);
                         set_total.set(details.transaction.total);
+                        // Still open: no payment yet (also clears any stale values).
+                        set_paid.set(details.transaction.paid_amount);
+                        set_change.set(details.transaction.change_amount);
                         set_active.set(true);
                     }
                 });
@@ -121,6 +127,8 @@ pub fn DisplayPage() -> impl IntoView {
                     if let Ok(details) = fetch_transaction_details(id).await {
                         set_items.set(details.items);
                         set_total.set(details.transaction.total);
+                        set_paid.set(details.transaction.paid_amount);
+                        set_change.set(details.transaction.change_amount);
                     }
                 });
 
@@ -134,6 +142,8 @@ pub fn DisplayPage() -> impl IntoView {
                         set_active.set(false);
                         set_items.set(vec![]);
                         set_total.set(0.0);
+                        set_paid.set(None);
+                        set_change.set(None);
                     }, 60_000);
                     set_timer_id.set(Some(tid));
                 }
@@ -147,6 +157,8 @@ pub fn DisplayPage() -> impl IntoView {
             set_active.set(false);
             set_items.set(vec![]);
             set_total.set(0.0);
+            set_paid.set(None);
+            set_change.set(None);
         }
     });
 
@@ -180,6 +192,18 @@ pub fn DisplayPage() -> impl IntoView {
                     <span>"Total"</span>
                     <span>{move || format!("{}{:.2}", currency.get(), total.get())}</span>
                 </div>
+                <Show when=move || paid.get().is_some() fallback=|| ()>
+                    <div class="display-paid">
+                        <span>"Paid"</span>
+                        <span>{move || format!("{}{:.2}", currency.get(), paid.get().unwrap_or(0.0))}</span>
+                    </div>
+                </Show>
+                <Show when=move || change.get().is_some() fallback=|| ()>
+                    <div class="display-change">
+                        <span>"Change"</span>
+                        <span>{move || format!("{}{:.2}", currency.get(), change.get().unwrap_or(0.0))}</span>
+                    </div>
+                </Show>
             </Show>
         </div>
     }
