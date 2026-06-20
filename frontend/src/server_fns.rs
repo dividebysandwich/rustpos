@@ -90,14 +90,18 @@ async fn update_transaction_total_db(
 ///
 /// `alias` is the table alias used for `transactions` in the surrounding query
 /// (e.g. `"t"` or `"transactions"`); it is a hard-coded identifier, never user
-/// input. A `Group` id is a `Uuid` whose canonical hex form has no SQL-special
-/// characters, so inlining it is safe and avoids variadic binding.
+/// input. sqlx stores `Uuid` columns as 16-byte BLOBs, so the group id is
+/// inlined as a SQLite blob literal (`X'<32 hex>'`) — a text literal would never
+/// match the stored blob. The hex form has no SQL-special characters, so this is
+/// injection-safe and avoids variadic binding.
 #[cfg(feature = "ssr")]
 fn group_filter_clause(filter: &GroupFilter, alias: &str) -> String {
     match filter {
         GroupFilter::All => String::new(),
         GroupFilter::Regular => format!(" AND {alias}.customer_group_id IS NULL"),
-        GroupFilter::Group(id) => format!(" AND {alias}.customer_group_id = '{id}'"),
+        GroupFilter::Group(id) => {
+            format!(" AND {alias}.customer_group_id = X'{}'", id.simple())
+        }
     }
 }
 
