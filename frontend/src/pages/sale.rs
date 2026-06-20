@@ -178,6 +178,14 @@ pub fn SalePage() -> impl IntoView {
         let name = customer_name.get();
         let cust = if name.is_empty() { None } else { Some(name) };
         if let Some(trans_id) = current_trans {
+            // Reflect the name in the open-orders tab list immediately; the tab
+            // list reads from this signal and otherwise wouldn't update until
+            // the next refetch (e.g. when an item changes the total).
+            set_open_transactions.update(|list| {
+                if let Some(t) = list.iter_mut().find(|t| t.id == trans_id) {
+                    t.customer_name = cust.clone();
+                }
+            });
             leptos::task::spawn_local(async move {
                 let _ = update_transaction_details(trans_id, cust).await;
             });
@@ -654,7 +662,7 @@ pub fn SalePage() -> impl IntoView {
 
                                 <Show when=move || !open_transactions.get().is_empty() fallback=|| ()>
                                     <div class="open-transactions-list">
-                                        <For each=move || open_transactions.get() key=|t| (t.id, t.total.to_bits()) let:trans>
+                                        <For each=move || open_transactions.get() key=|t| (t.id, t.total.to_bits(), t.customer_name.clone()) let:trans>
                                             {
                                                 let trans_id = trans.id;
                                                 view! {
