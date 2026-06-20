@@ -102,8 +102,22 @@ async fn main() {
     .await
     .expect("Failed to create transaction_items table");
 
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS customer_groups (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&db)
+    .await
+    .expect("Failed to create customer_groups table");
+
     // Migrations for new columns
     sqlx::query("ALTER TABLE categories ADD COLUMN main_course BOOLEAN NOT NULL DEFAULT 0").execute(&db).await.ok();
+    // NULL customer_group_id means the sale belongs to "regular customers".
+    sqlx::query("ALTER TABLE transactions ADD COLUMN customer_group_id TEXT REFERENCES customer_groups(id)").execute(&db).await.ok();
     sqlx::query("ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0").execute(&db).await.ok();
     // One-time backfill: when no category has an assigned order yet (every row
     // still at the default 0), seed a stable initial order alphabetically by

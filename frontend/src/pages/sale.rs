@@ -156,6 +156,9 @@ pub fn SalePage() -> impl IntoView {
     let (transaction_items, set_transaction_items) =
         signal(Vec::<TransactionItemDetail>::new());
     let (customer_name, set_customer_name) = signal(String::new());
+    // Customer group the active order is tabulated under (None = regular customers).
+    let (customer_groups, set_customer_groups) = signal(Vec::<CustomerGroup>::new());
+    let (selected_group, set_selected_group) = signal(Option::<Uuid>::None);
     let (change_amount, set_change_amount) = signal(Option::<f64>::None);
     let (open_transactions, set_open_transactions) = signal(Vec::<Transaction>::new());
     let (payment_amount, set_payment_amount) = signal(String::new());
@@ -173,10 +176,13 @@ pub fn SalePage() -> impl IntoView {
     let (show_name_kb, set_show_name_kb) = signal(false);
     let (kb_shift, set_kb_shift) = signal(false);
 
+    // Persists the active order's customer name and group to the server, and
+    // mirrors them into the open-orders list signal so the tab updates at once.
     let sync_customer_name = move || {
         let current_trans = current_transaction.get();
         let name = customer_name.get();
         let cust = if name.is_empty() { None } else { Some(name) };
+        let group = selected_group.get();
         if let Some(trans_id) = current_trans {
             // Reflect the name in the open-orders tab list immediately; the tab
             // list reads from this signal and otherwise wouldn't update until
@@ -184,10 +190,11 @@ pub fn SalePage() -> impl IntoView {
             set_open_transactions.update(|list| {
                 if let Some(t) = list.iter_mut().find(|t| t.id == trans_id) {
                     t.customer_name = cust.clone();
+                    t.customer_group_id = group;
                 }
             });
             leptos::task::spawn_local(async move {
-                let _ = update_transaction_details(trans_id, cust).await;
+                let _ = update_transaction_details(trans_id, cust, group).await;
             });
         }
     };
@@ -299,6 +306,9 @@ pub fn SalePage() -> impl IntoView {
             if let Ok(its) = fetch_items().await {
                 set_items.set(its);
             }
+            if let Ok(groups) = fetch_customer_groups().await {
+                set_customer_groups.set(groups);
+            }
             if let Ok(trans) = fetch_open_transactions().await {
                 set_open_transactions.set(trans);
             }
@@ -373,6 +383,7 @@ pub fn SalePage() -> impl IntoView {
             if let Ok(transaction) = create_transaction(cust).await {
                 set_current_transaction.set(Some(transaction.id));
                 set_transaction_items.set(vec![]);
+                set_selected_group.set(None);
                 set_change_amount.set(None);
                 set_mobile_panel.set("items".to_string());
                 let _ = set_display_transaction(Some(transaction.id)).await;
@@ -389,6 +400,7 @@ pub fn SalePage() -> impl IntoView {
                 set_current_transaction.set(Some(trans_id));
                 set_transaction_items.set(details.items);
                 set_customer_name.set(details.transaction.customer_name.unwrap_or_default());
+                set_selected_group.set(details.transaction.customer_group_id);
                 set_mobile_panel.set("items".to_string());
                 let _ = set_display_transaction(Some(trans_id)).await;
             }
@@ -433,6 +445,7 @@ pub fn SalePage() -> impl IntoView {
                         set_change_amount.set(Some(response.change_amount));
                         set_current_transaction.set(None);
                         set_customer_name.set(String::new());
+                        set_selected_group.set(None);
                         set_payment_amount.set(String::new());
                         if let Ok(trans) = fetch_open_transactions().await {
                             set_open_transactions.set(trans);
@@ -459,6 +472,7 @@ pub fn SalePage() -> impl IntoView {
                     set_current_transaction.set(None);
                     set_transaction_items.set(vec![]);
                     set_customer_name.set(String::new());
+                    set_selected_group.set(None);
                     if let Ok(trans) = fetch_open_transactions().await {
                         set_open_transactions.set(trans);
                     }
@@ -481,6 +495,7 @@ pub fn SalePage() -> impl IntoView {
                 set_current_transaction.set(None);
                 set_transaction_items.set(vec![]);
                 set_customer_name.set(String::new());
+                set_selected_group.set(None);
                 if let Ok(trans) = fetch_open_transactions().await {
                     set_open_transactions.set(trans);
                 }
@@ -694,6 +709,24 @@ pub fn SalePage() -> impl IntoView {
                                         prop:value=move || customer_name.get()
                                     />
                                 </div>
+                                <Show when=move || !customer_groups.get().is_empty() fallback=|| ()>
+                                    <div class="admin-input-row">
+                                        <strong>{move || i18n.get().t("sale.customer_group")}</strong>
+                                        <select
+                                            prop:value=move || selected_group.get().map(|id| id.to_string()).unwrap_or_default()
+                                            on:change=move |ev| {
+                                                let v = event_target_value(&ev);
+                                                set_selected_group.set(Uuid::parse_str(&v).ok());
+                                                sync_customer_name();
+                                            }
+                                        >
+                                            <option value="">{move || i18n.get().t("groups.regular")}</option>
+                                            <For each=move || customer_groups.get() key=|g| (g.id, g.name.clone()) let:g>
+                                                <option value={g.id.to_string()}>{g.name.clone()}</option>
+                                            </For>
+                                        </select>
+                                    </div>
+                                </Show>
                                 <Show when=move || show_name_kb.get() && current_transaction.get().is_some() fallback=|| ()>
                                     <OnScreenKeyboard on_key=on_name_kb_key shift=kb_shift i18n=i18n />
                                 </Show>

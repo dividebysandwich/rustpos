@@ -214,5 +214,18 @@
   "categories.main_course": "Main course",
   "categories.print_menu": "Menu PDF",
   "categories.generating_menu": "Generating…",
-  "menu.title": "Menu"
+  "menu.title": "Menu",
+  "nav.customer_groups": "Gruppi di clienti",
+  "groups.title": "Gruppi di clienti",
+  "groups.add": "Aggiungi gruppo",
+  "groups.create": "Crea gruppo di clienti",
+  "groups.edit": "Modifica gruppo di clienti",
+  "groups.name": "Nome del gruppo",
+  "groups.confirm_delete": "Eliminare il gruppo di clienti \"{name}\"?",
+  "groups.delete_warning": "Le vendite di questo gruppo verranno spostate ai clienti regolari.",
+  "groups.none": "Nessun gruppo di clienti.",
+  "groups.regular": "Clienti regolari",
+  "groups.all": "Tutte le vendite",
+  "reports.customer_group": "Gruppo di clienti",
+  "sale.customer_group": "Gruppo"
 }

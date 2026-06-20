@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use leptos::prelude::*;
+use uuid::Uuid;
 
 use crate::i18n::I18n;
 use crate::models::*;
@@ -519,6 +520,11 @@ pub fn ReportsPage() -> impl IntoView {
     let (error, set_error) = signal(Option::<String>::None);
     let (print_msg, set_print_msg) = signal(Option::<String>::None);
 
+    // Customer-group filter the whole report (and its export/print) operates on.
+    // Defaults to regular customers; "All sales" and each group are selectable.
+    let (cust_groups, set_cust_groups) = signal(Vec::<CustomerGroup>::new());
+    let (group_filter, set_group_filter) = signal(GroupFilter::Regular);
+
     Effect::new(move || {
         let today = Utc::now();
         let week_ago = today - chrono::Duration::days(7);
@@ -526,14 +532,26 @@ pub fn ReportsPage() -> impl IntoView {
         set_start_date.set(week_ago.format("%Y-%m-%d").to_string());
     });
 
+    Effect::new(move || {
+        leptos::task::spawn_local(async move {
+            if let Ok(groups) = fetch_customer_groups().await {
+                set_cust_groups.set(groups);
+            }
+        });
+    });
+
     let load_report = move |rtype: String| {
         set_loading.set(true);
         set_error.set(None);
 
+        // Untracked: load_report is also called from an Effect, and a tracked
+        // read here would subscribe that Effect to group_filter and clobber the
+        // active report type on every filter change.
+        let filter = group_filter.get_untracked();
         leptos::task::spawn_local(async move {
             let result: Result<SalesReport, String> = match rtype.as_str() {
-                "daily" => fetch_daily_report().await.map_err(|e| e.to_string()),
-                "monthly" => fetch_monthly_report().await.map_err(|e| e.to_string()),
+                "daily" => fetch_daily_report(filter.clone()).await.map_err(|e| e.to_string()),
+                "monthly" => fetch_monthly_report(filter.clone()).await.map_err(|e| e.to_string()),
                 "custom" => {
                     if let (Ok(start), Ok(end)) = (
                         start_date.get().parse::<chrono::NaiveDate>(),
@@ -544,7 +562,7 @@ pub fn ReportsPage() -> impl IntoView {
                         let end_dt = end.and_hms_opt(23, 59, 59)
                             .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
                         if let (Some(start_dt), Some(end_dt)) = (start_dt, end_dt) {
-                            fetch_sales_report(start_dt, end_dt).await.map_err(|e| e.to_string())
+                            fetch_sales_report(start_dt, end_dt, filter.clone()).await.map_err(|e| e.to_string())
                         } else {
                             Err("Invalid date format".to_string())
                         }
@@ -561,23 +579,23 @@ pub fn ReportsPage() -> impl IntoView {
                     let ed = report_data.end_date;
                     set_report.set(Some(report_data));
                     set_error.set(None);
-                    match fetch_item_sales_timeseries(sd, ed, 10).await {
+                    match fetch_item_sales_timeseries(sd, ed, 10, filter.clone()).await {
                         Ok(ts) => set_timeseries.set(Some(ts)),
                         Err(_) => set_timeseries.set(None),
                     }
-                    match fetch_revenue_timeseries(sd, ed).await {
+                    match fetch_revenue_timeseries(sd, ed, filter.clone()).await {
                         Ok(rt) => set_revenue_ts.set(Some(rt)),
                         Err(_) => set_revenue_ts.set(None),
                     }
-                    match fetch_basket_size_distribution(sd, ed).await {
+                    match fetch_basket_size_distribution(sd, ed, filter.clone()).await {
                         Ok(b) => set_basket_dist.set(Some(b)),
                         Err(_) => set_basket_dist.set(None),
                     }
-                    match fetch_payment_analysis(sd, ed).await {
+                    match fetch_payment_analysis(sd, ed, filter.clone()).await {
                         Ok(p) => set_payment.set(Some(p)),
                         Err(_) => set_payment.set(None),
                     }
-                    match fetch_underperforming_items(sd, ed, 50).await {
+                    match fetch_underperforming_items(sd, ed, 50, filter.clone()).await {
                         Ok(u) => set_under_items.set(u),
                         Err(_) => set_under_items.set(Vec::new()),
                     }
@@ -619,6 +637,36 @@ pub fn ReportsPage() -> impl IntoView {
                     >{move || i18n.get().t("reports.custom")}</button>
                 </div>
 
+                <div class="form-group">
+                    <label>{move || i18n.get().t("reports.customer_group")}</label>
+                    <select
+                        prop:value=move || match group_filter.get() {
+                            GroupFilter::All => "all".to_string(),
+                            GroupFilter::Regular => "regular".to_string(),
+                            GroupFilter::Group(id) => id.to_string(),
+                        }
+                        on:change=move |ev| {
+                            let v = event_target_value(&ev);
+                            let filter = match v.as_str() {
+                                "all" => GroupFilter::All,
+                                "regular" => GroupFilter::Regular,
+                                other => match Uuid::parse_str(other) {
+                                    Ok(id) => GroupFilter::Group(id),
+                                    Err(_) => GroupFilter::Regular,
+                                },
+                            };
+                            set_group_filter.set(filter);
+                            load_report(report_type.get());
+                        }
+                    >
+                        <option value="all">{move || i18n.get().t("groups.all")}</option>
+                        <option value="regular">{move || i18n.get().t("groups.regular")}</option>
+                        <For each=move || cust_groups.get() key=|g| (g.id, g.name.clone()) let:g>
+                            <option value={g.id.to_string()}>{g.name.clone()}</option>
+                        </For>
+                    </select>
+                </div>
+
                 <Show when=move || report_type.get() == "custom" fallback=|| ()>
                     <div class="date-range-selector">
                         <div class="form-group">
@@ -640,8 +688,9 @@ pub fn ReportsPage() -> impl IntoView {
                         if let Some(r) = report.get() {
                             let sd = r.start_date;
                             let ed = r.end_date;
+                            let filter = group_filter.get();
                             leptos::task::spawn_local(async move {
-                                if let Ok(csv) = export_report_csv(sd, ed).await {
+                                if let Ok(csv) = export_report_csv(sd, ed, filter).await {
                                     trigger_csv_download(&csv, "sales_report.csv");
                                 }
                             });
@@ -651,9 +700,10 @@ pub fn ReportsPage() -> impl IntoView {
                         if let Some(r) = report.get() {
                             let sd = r.start_date;
                             let ed = r.end_date;
+                            let filter = group_filter.get();
                             set_print_msg.set(None);
                             leptos::task::spawn_local(async move {
-                                match print_sales_report(sd, ed).await {
+                                match print_sales_report(sd, ed, filter).await {
                                     Ok(()) => set_print_msg.set(Some(i18n.get_untracked().t("reports.print_sent"))),
                                     Err(e) => set_print_msg.set(Some(format!("{}", e))),
                                 }

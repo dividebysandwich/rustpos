@@ -7,7 +7,6 @@
   "nav.settings": "Settings",
   "nav.light_mode": "Switch to light mode",
   "nav.dark_mode": "Switch to dark mode",
-
   "general.loading": "Loading...",
   "general.page_not_found": "Page not found",
   "general.walkin": "Walk-in",
@@ -21,11 +20,9 @@
   "general.unknown": "Unknown",
   "general.name": "Name",
   "general.description": "Description",
-
   "role.admin": "Admin",
   "role.cashier": "Cashier",
   "role.cook": "Cook",
-
   "setup.select_language": "Select Language",
   "setup.initial_setup": "Initial Setup",
   "setup.admin_created": "An admin account has been created. Please save these credentials:",
@@ -33,14 +30,12 @@
   "setup.pin_label": "PIN:",
   "setup.change_pin": "Please change your PIN after logging in.",
   "setup.continue_login": "Continue to Login",
-
   "login.select_user": "Select User",
   "login.enter_pin": "Enter your PIN",
   "login.welcome": "Welcome, {name}",
   "login.clear": "Clear",
   "login.ok": "OK",
   "login.back": "Back",
-
   "sale.sale": "Sale",
   "sale.kitchen": "Kitchen",
   "sale.logout": "Logout",
@@ -71,7 +66,6 @@
   "sale.kitchen_orders": "Kitchen Orders",
   "sale.no_kitchen_orders": "No pending kitchen orders",
   "sale.complete": "Complete",
-
   "kitchen.title": "Kitchen Display",
   "kitchen.hide_completed": "Hide Completed",
   "kitchen.show_completed": "Show Completed",
@@ -84,7 +78,6 @@
   "kitchen.order_complete": "Order Complete",
   "kitchen.completed_orders": "Completed Orders",
   "kitchen.no_completed": "No completed orders yet",
-
   "admin.user_management": "User Management",
   "admin.add_user": "Add User",
   "admin.create_user": "Create New User",
@@ -124,7 +117,6 @@
   "admin.system_ip_hint": "Network addresses this server can be reached at. Use these to point remote print clients and other devices at this server.",
   "admin.system_ip_loading": "Loading…",
   "admin.system_ip_none": "No network addresses found.",
-
   "items.title": "Items",
   "items.add_item": "Add New Item",
   "items.create_item": "Create New Item",
@@ -145,7 +137,6 @@
   "items.out": "Out",
   "items.confirm_delete": "Are you sure you want to delete \"{name}\"?",
   "items.upload": "Upload",
-
   "categories.title": "Categories",
   "categories.add": "Add New Category",
   "categories.create": "Create New Category",
@@ -156,7 +147,6 @@
   "categories.print_menu": "Menu PDF",
   "categories.generating_menu": "Generating…",
   "menu.title": "Menu",
-
   "transactions.title": "Transactions",
   "transactions.show_all": "Show All",
   "transactions.show_open": "Show Open Only",
@@ -172,7 +162,6 @@
   "transactions.total_label": "Total: ",
   "transactions.paid": "Paid: ",
   "transactions.change": "Change: ",
-
   "reports.title": "Sales Reports",
   "reports.today": "Today",
   "reports.monthly": "Last 30 Days",
@@ -216,16 +205,27 @@
   "reports.underperformers_title": "Items With No Sales",
   "reports.underperformers_hint": "Items existing before the period end that recorded zero sales in the selected period.",
   "reports.created_at": "Created",
-
   "keyboard.shift": "Shift",
   "keyboard.bksp": "Bksp",
   "keyboard.space": "Space",
   "keyboard.enter": "Enter",
-
   "currency.title": "Currency",
   "currency.select": "Select Currency",
   "currency.custom": "Custom symbol",
   "currency.custom_placeholder": "e.g. kr, CHF, $",
   "currency.set": "Set",
-  "currency.setting": "Currency Setting"
+  "currency.setting": "Currency Setting",
+  "nav.customer_groups": "Customer Groups",
+  "groups.title": "Customer Groups",
+  "groups.add": "Add Group",
+  "groups.create": "Create Customer Group",
+  "groups.edit": "Edit Customer Group",
+  "groups.name": "Group Name",
+  "groups.confirm_delete": "Delete customer group \"{name}\"?",
+  "groups.delete_warning": "Sales from this group will be moved to regular customers.",
+  "groups.none": "No customer groups yet.",
+  "groups.regular": "Regular customers",
+  "groups.all": "All sales",
+  "reports.customer_group": "Customer group",
+  "sale.customer_group": "Group"
 }

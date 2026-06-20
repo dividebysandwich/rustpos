@@ -214,5 +214,18 @@
   "currency.custom": "Eigenes Symbol",
   "currency.custom_placeholder": "z.B. kr, CHF, $",
   "currency.set": "Setzen",
-  "currency.setting": "Währungseinstellung"
+  "currency.setting": "Währungseinstellung",
+  "nav.customer_groups": "Kundengruppen",
+  "groups.title": "Kundengruppen",
+  "groups.add": "Gruppe hinzufügen",
+  "groups.create": "Kundengruppe erstellen",
+  "groups.edit": "Kundengruppe bearbeiten",
+  "groups.name": "Gruppenname",
+  "groups.confirm_delete": "Kundengruppe „{name}“ löschen?",
+  "groups.delete_warning": "Verkäufe dieser Gruppe werden zu den regulären Kunden verschoben.",
+  "groups.none": "Noch keine Kundengruppen.",
+  "groups.regular": "Reguläre Kunden",
+  "groups.all": "Alle Verkäufe",
+  "reports.customer_group": "Kundengruppe",
+  "sale.customer_group": "Gruppe"
 }

@@ -44,9 +44,35 @@ pub struct Transaction {
     pub total: f64,
     pub paid_amount: Option<f64>,
     pub change_amount: Option<f64>,
+    /// The customer group this sale is tabulated under. `None` means the sale
+    /// belongs to "regular customers". See [`CustomerGroup`].
+    pub customer_group_id: Option<Uuid>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub closed_at: Option<DateTime<Utc>>,
+}
+
+/// A named group whose sales are tabulated separately in the statistics
+/// (e.g. "Staff", "VIP"). Managed by admins; sales can be closed against any
+/// group by cashiers. Deleting a group reassigns its sales to regular customers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ssr", derive(sqlx::FromRow))]
+pub struct CustomerGroup {
+    pub id: Uuid,
+    pub name: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+/// Selects which sales the statistics aggregate over.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum GroupFilter {
+    /// Every closed sale, regardless of customer group.
+    All,
+    /// Only sales not assigned to any customer group ("regular customers").
+    Regular,
+    /// Only sales assigned to the given customer group.
+    Group(Uuid),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

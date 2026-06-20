@@ -88,6 +88,7 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("transactions") view=TransactionsPage/>
                     <Route path=StaticSegment("items") view=ItemsPage/>
                     <Route path=StaticSegment("categories") view=CategoriesPage/>
+                    <Route path=StaticSegment("customer-groups") view=CustomerGroupsPage/>
                     <Route path=StaticSegment("reports") view=ReportsPage/>
                     <Route path=StaticSegment("kitchen") view=KitchenPage/>
                     <Route path=StaticSegment("login") view=LoginPage/>
@@ -172,6 +173,10 @@ fn AppNavbar(
                                         class=move || if location.pathname.get().starts_with("/categories") { "active" } else { "" }
                                         on:click=move |_| set_menu_open.set(false)
                                     >{i18n.get().t("nav.categories")}</a>
+                                    <a href="/customer-groups"
+                                        class=move || if location.pathname.get().starts_with("/customer-groups") { "active" } else { "" }
+                                        on:click=move |_| set_menu_open.set(false)
+                                    >{i18n.get().t("nav.customer_groups")}</a>
                                     <a href="/reports"
                                         class=move || if location.pathname.get().starts_with("/reports") { "active" } else { "" }
                                         on:click=move |_| set_menu_open.set(false)

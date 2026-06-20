@@ -86,17 +86,33 @@ async fn update_transaction_total_db(
     Ok(())
 }
 
+/// Builds the SQL fragment that restricts a query to a customer group.
+///
+/// `alias` is the table alias used for `transactions` in the surrounding query
+/// (e.g. `"t"` or `"transactions"`); it is a hard-coded identifier, never user
+/// input. A `Group` id is a `Uuid` whose canonical hex form has no SQL-special
+/// characters, so inlining it is safe and avoids variadic binding.
+#[cfg(feature = "ssr")]
+fn group_filter_clause(filter: &GroupFilter, alias: &str) -> String {
+    match filter {
+        GroupFilter::All => String::new(),
+        GroupFilter::Regular => format!(" AND {alias}.customer_group_id IS NULL"),
+        GroupFilter::Group(id) => format!(" AND {alias}.customer_group_id = '{id}'"),
+    }
+}
+
 #[cfg(feature = "ssr")]
 async fn generate_sales_report_db(
     pool: &sqlx::SqlitePool,
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: &GroupFilter,
 ) -> Result<SalesReport, ServerFnError> {
     if end_date <= start_date {
         return Err(not_found("End date must be after start date"));
     }
 
-    let items = sqlx::query_as::<_, ItemSalesReport>(
+    let items = sqlx::query_as::<_, ItemSalesReport>(&format!(
         "SELECT i.id as item_id, i.name as item_name, c.name as category_name,
          SUM(ti.quantity) as quantity_sold, SUM(ti.total_price) as total_revenue,
          AVG(ti.unit_price) as average_price, COUNT(DISTINCT ti.transaction_id) as transaction_count
@@ -104,9 +120,10 @@ async fn generate_sales_report_db(
          JOIN items i ON ti.item_id = i.id
          JOIN categories c ON i.category_id = c.id
          JOIN transactions t ON ti.transaction_id = t.id
-         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?{}
          GROUP BY i.id, i.name, c.name ORDER BY total_revenue DESC",
-    )
+        group_filter_clause(filter, "t"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .fetch_all(pool)
@@ -116,10 +133,11 @@ async fn generate_sales_report_db(
     let total_revenue: f64 = items.iter().map(|i| i.total_revenue).sum();
     let total_items_sold: i64 = items.iter().map(|i| i.quantity_sold).sum();
 
-    let transaction_count = sqlx::query_scalar::<_, i64>(
+    let transaction_count = sqlx::query_scalar::<_, i64>(&format!(
         "SELECT COUNT(DISTINCT id) FROM transactions
-         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?",
-    )
+         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?{}",
+        group_filter_clause(filter, "transactions"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .fetch_one(pool)
@@ -312,6 +330,89 @@ pub async fn delete_category(id: Uuid) -> Result<(), ServerFnError> {
         .map_err(db_err)?;
     if result.rows_affected() == 0 {
         return Err(not_found("Category not found"));
+    }
+    Ok(())
+}
+
+// ---- Customer Group Server Functions ----
+
+/// Lists all customer groups. Available to any signed-in role so cashiers can
+/// pick a group when closing a sale.
+#[server]
+pub async fn fetch_customer_groups() -> Result<Vec<CustomerGroup>, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let groups = sqlx::query_as::<_, CustomerGroup>("SELECT * FROM customer_groups ORDER BY name")
+        .fetch_all(&pool)
+        .await
+        .map_err(db_err)?;
+    Ok(groups)
+}
+
+#[server]
+pub async fn create_customer_group(name: String) -> Result<CustomerGroup, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(not_found("Group name must not be empty"));
+    }
+    let id = Uuid::new_v4();
+    let now = Utc::now();
+    let group = sqlx::query_as::<_, CustomerGroup>(
+        "INSERT INTO customer_groups (id, name, created_at, updated_at)
+         VALUES (?, ?, ?, ?) RETURNING *",
+    )
+    .bind(id)
+    .bind(&name)
+    .bind(now)
+    .bind(now)
+    .fetch_one(&pool)
+    .await
+    .map_err(db_err)?;
+    Ok(group)
+}
+
+#[server]
+pub async fn update_customer_group(id: Uuid, name: String) -> Result<CustomerGroup, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(not_found("Group name must not be empty"));
+    }
+    let group = sqlx::query_as::<_, CustomerGroup>(
+        "UPDATE customer_groups SET name = ?, updated_at = ? WHERE id = ? RETURNING *",
+    )
+    .bind(&name)
+    .bind(Utc::now())
+    .bind(id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(db_err)?
+    .ok_or_else(|| not_found("Customer group not found"))?;
+    Ok(group)
+}
+
+/// Deletes a customer group. Its sales are transferred back to "regular
+/// customers" (their `customer_group_id` is cleared) so no statistics are lost.
+#[server]
+pub async fn delete_customer_group(id: Uuid) -> Result<(), ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    sqlx::query("UPDATE transactions SET customer_group_id = NULL WHERE customer_group_id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+    let result = sqlx::query("DELETE FROM customer_groups WHERE id = ?")
+        .bind(id)
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+    if result.rows_affected() == 0 {
+        return Err(not_found("Customer group not found"));
     }
     Ok(())
 }
@@ -708,6 +809,7 @@ pub async fn create_transaction(
 pub async fn update_transaction_details(
     id: Uuid,
     customer_name: Option<String>,
+    customer_group_id: Option<Uuid>,
 ) -> Result<Transaction, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     sqlx::query_as::<_, Transaction>(
@@ -720,9 +822,10 @@ pub async fn update_transaction_details(
     .ok_or_else(|| not_found("Transaction not found or not open"))?;
 
     let updated = sqlx::query_as::<_, Transaction>(
-        "UPDATE transactions SET customer_name = ?, updated_at = ? WHERE id = ? RETURNING *",
+        "UPDATE transactions SET customer_name = ?, customer_group_id = ?, updated_at = ? WHERE id = ? RETURNING *",
     )
     .bind(&customer_name)
+    .bind(customer_group_id)
     .bind(Utc::now())
     .bind(id)
     .fetch_one(&pool)
@@ -1122,25 +1225,26 @@ pub async fn set_display_transaction(id: Option<Uuid>) -> Result<(), ServerFnErr
 pub async fn fetch_sales_report(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<SalesReport, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    generate_sales_report_db(&pool, start_date, end_date).await
+    generate_sales_report_db(&pool, start_date, end_date, &filter).await
 }
 
 #[server]
-pub async fn fetch_daily_report() -> Result<SalesReport, ServerFnError> {
+pub async fn fetch_daily_report(filter: GroupFilter) -> Result<SalesReport, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let end_date = Utc::now();
     let start_date = end_date - chrono::Duration::days(1);
-    generate_sales_report_db(&pool, start_date, end_date).await
+    generate_sales_report_db(&pool, start_date, end_date, &filter).await
 }
 
 #[server]
-pub async fn fetch_monthly_report() -> Result<SalesReport, ServerFnError> {
+pub async fn fetch_monthly_report(filter: GroupFilter) -> Result<SalesReport, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
     let end_date = Utc::now();
     let start_date = end_date - chrono::Duration::days(30);
-    generate_sales_report_db(&pool, start_date, end_date).await
+    generate_sales_report_db(&pool, start_date, end_date, &filter).await
 }
 
 #[server]
@@ -1148,6 +1252,7 @@ pub async fn fetch_item_sales_timeseries(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
     top_n: i64,
+    filter: GroupFilter,
 ) -> Result<ItemSalesTimeseries, ServerFnError> {
     use chrono::{Datelike, TimeZone, Timelike};
 
@@ -1166,16 +1271,17 @@ pub async fn fetch_item_sales_timeseries(
         item_id: Uuid,
         item_name: String,
     }
-    let top_items = sqlx::query_as::<_, TopRow>(
+    let top_items = sqlx::query_as::<_, TopRow>(&format!(
         "SELECT i.id as item_id, i.name as item_name
          FROM transaction_items ti
          JOIN items i ON ti.item_id = i.id
          JOIN transactions t ON ti.transaction_id = t.id
-         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?{}
          GROUP BY i.id, i.name
          ORDER BY SUM(ti.quantity) DESC
          LIMIT ?",
-    )
+        group_filter_clause(&filter, "t"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .bind(top_n)
@@ -1246,8 +1352,9 @@ pub async fn fetch_item_sales_timeseries(
         "SELECT ti.item_id as item_id, ti.quantity as quantity, t.closed_at as closed_at
          FROM transaction_items ti
          JOIN transactions t ON ti.transaction_id = t.id
-         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?{}
            AND ti.item_id IN ({})",
+        group_filter_clause(&filter, "t"),
         placeholders
     );
     let mut q = sqlx::query_as::<_, (Uuid, i64, DateTime<Utc>)>(&sql)
@@ -1289,6 +1396,7 @@ pub async fn fetch_item_sales_timeseries(
 pub async fn fetch_revenue_timeseries(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<RevenueTimeseries, ServerFnError> {
     use chrono::{Datelike, TimeZone, Timelike};
     if end_date <= start_date {
@@ -1337,10 +1445,11 @@ pub async fn fetch_revenue_timeseries(
         }
     }
 
-    let rows = sqlx::query_as::<_, (f64, DateTime<Utc>)>(
+    let rows = sqlx::query_as::<_, (f64, DateTime<Utc>)>(&format!(
         "SELECT total, closed_at FROM transactions
-         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?",
-    )
+         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?{}",
+        group_filter_clause(&filter, "transactions"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .fetch_all(&pool)
@@ -1377,19 +1486,21 @@ pub async fn fetch_revenue_timeseries(
 pub async fn fetch_basket_size_distribution(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<BasketSizeDistribution, ServerFnError> {
     if end_date <= start_date {
         return Err(not_found("End date must be after start date"));
     }
     let pool = expect_context::<sqlx::SqlitePool>();
 
-    let rows = sqlx::query_as::<_, (Uuid, i64)>(
+    let rows = sqlx::query_as::<_, (Uuid, i64)>(&format!(
         "SELECT t.id, COALESCE(SUM(ti.quantity), 0) as items_count
          FROM transactions t
          LEFT JOIN transaction_items ti ON ti.transaction_id = t.id
-         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+         WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?{}
          GROUP BY t.id",
-    )
+        group_filter_clause(&filter, "t"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .fetch_all(&pool)
@@ -1446,16 +1557,18 @@ pub async fn fetch_basket_size_distribution(
 pub async fn fetch_payment_analysis(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<PaymentAnalysis, ServerFnError> {
     if end_date <= start_date {
         return Err(not_found("End date must be after start date"));
     }
     let pool = expect_context::<sqlx::SqlitePool>();
 
-    let rows = sqlx::query_as::<_, (Option<f64>, Option<f64>)>(
+    let rows = sqlx::query_as::<_, (Option<f64>, Option<f64>)>(&format!(
         "SELECT paid_amount, change_amount FROM transactions
-         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?",
-    )
+         WHERE status = 'closed' AND closed_at >= ? AND closed_at < ?{}",
+        group_filter_clause(&filter, "transactions"),
+    ))
     .bind(start_date)
     .bind(end_date)
     .fetch_all(&pool)
@@ -1529,13 +1642,14 @@ pub async fn fetch_underperforming_items(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
     limit: i64,
+    filter: GroupFilter,
 ) -> Result<Vec<UnderperformingItem>, ServerFnError> {
     if end_date <= start_date {
         return Err(not_found("End date must be after start date"));
     }
     let pool = expect_context::<sqlx::SqlitePool>();
 
-    let items = sqlx::query_as::<_, UnderperformingItem>(
+    let items = sqlx::query_as::<_, UnderperformingItem>(&format!(
         "SELECT i.id as item_id, i.name as item_name,
                 COALESCE(c.name, '') as category_name,
                 i.price as price,
@@ -1548,11 +1662,12 @@ pub async fn fetch_underperforming_items(
            AND i.id NOT IN (
                SELECT DISTINCT ti.item_id FROM transaction_items ti
                JOIN transactions t ON ti.transaction_id = t.id
-               WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?
+               WHERE t.status = 'closed' AND t.closed_at >= ? AND t.closed_at < ?{}
            )
          ORDER BY i.created_at ASC, i.name ASC
          LIMIT ?",
-    )
+        group_filter_clause(&filter, "t"),
+    ))
     .bind(end_date)
     .bind(start_date)
     .bind(end_date)
@@ -1568,9 +1683,10 @@ pub async fn fetch_underperforming_items(
 pub async fn export_report_csv(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<String, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    let report = generate_sales_report_db(&pool, start_date, end_date).await?;
+    let report = generate_sales_report_db(&pool, start_date, end_date, &filter).await?;
 
     let mut csv = String::from("Item,Category,Quantity Sold,Revenue,Avg Price,Transactions\n");
     for item in &report.items {
@@ -2258,13 +2374,14 @@ pub async fn set_disable_local_printing(disabled: bool) -> Result<(), ServerFnEr
 pub async fn print_sales_report(
     start_date: DateTime<Utc>,
     end_date: DateTime<Utc>,
+    filter: GroupFilter,
 ) -> Result<(), ServerFnError> {
     use crate::printer::{find_printer, print_sales_report as print_sr};
 
     let pool = expect_context::<sqlx::SqlitePool>();
     require_admin(&pool).await?;
 
-    let report = generate_sales_report_db(&pool, start_date, end_date).await?;
+    let report = generate_sales_report_db(&pool, start_date, end_date, &filter).await?;
     let currency: String =
         sqlx::query_scalar("SELECT value FROM config WHERE key = 'currency'")
             .fetch_optional(&pool)
