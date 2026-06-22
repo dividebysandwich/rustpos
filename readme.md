@@ -22,16 +22,19 @@ This is a simple implementation using modern technologies. It was born out of my
 * Change calculation
 * Quick cash function
 * Sales report generation: day, month, and custom date range reports with CSV export
+* Customer groups (with their separate sales reports)
 * POS printer support (built into main application)
 * Optional remote printer client (for dedicated server/cloud setups)
 * Kitchen display
 * User accounts and user roles (admin, cashier, cook)
 * Simple inventory tracking
+* PDF menu generation
 * Bright and Dark mode support
 * All-Rust solution
 * Leptos and Webassembly powered web UI, no javascript
 * SQLite database
 * Localized into several languages
+* Optimized for touch POS systems with a built-on on-screen keyboard
 
 ## Installation
 
