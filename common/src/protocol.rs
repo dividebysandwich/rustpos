@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrintReceiptJob {
-    pub items: Vec<(String, u32, f32)>,
-    pub paid_amount: f32,
-    pub change: f32,
+    pub items: Vec<(String, u32, f64)>,
+    pub paid_amount: f64,
+    pub change: f64,
     pub datetime: String,
 }
 

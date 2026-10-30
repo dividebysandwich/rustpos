@@ -437,9 +437,13 @@ pub fn SalePage() -> impl IntoView {
     let checkout = move |_| {
         let current_trans = current_transaction.get();
         let amount_str = payment_amount.get();
+        let total = transaction_total();
         let fetch_last_closed = fetch_last_closed.clone();
         if let Some(trans_id) = current_trans {
             if let Ok(amount) = amount_str.parse::<f64>() {
+                if amount + 0.0001 < total {
+                    return; // Insufficient payment amount
+                }
                 leptos::task::spawn_local(async move {
                     if let Ok(response) = close_transaction(trans_id, amount).await {
                         set_change_amount.set(Some(response.change_amount));
@@ -464,15 +468,18 @@ pub fn SalePage() -> impl IntoView {
     };
 
     let cancel_sale_handler = move |_| {
-        let current_trans = current_transaction.get();
+        let to_cancel = canceling_transaction.get();
         let fetch_last_closed = fetch_last_closed.clone();
-        if let Some(trans_id) = current_trans {
+        if let Some(trans_id) = to_cancel {
+            let is_current = current_transaction.get() == Some(trans_id);
             leptos::task::spawn_local(async move {
                 if cancel_transaction(trans_id).await.is_ok() {
-                    set_current_transaction.set(None);
-                    set_transaction_items.set(vec![]);
-                    set_customer_name.set(String::new());
-                    set_selected_group.set(None);
+                    if is_current {
+                        set_current_transaction.set(None);
+                        set_transaction_items.set(vec![]);
+                        set_customer_name.set(String::new());
+                        set_selected_group.set(None);
+                    }
                     if let Ok(trans) = fetch_open_transactions().await {
                         set_open_transactions.set(trans);
                     }
@@ -817,6 +824,15 @@ pub fn SalePage() -> impl IntoView {
                                                     <button class="keypad-btn" on:click=move |_| {
                                                         if val_clone == "⌫" {
                                                             set_payment_amount.update(|amt| { amt.pop(); });
+                                                        } else if val_clone == "." {
+                                                            set_payment_amount.update(|amt| {
+                                                                if !amt.contains('.') {
+                                                                    if amt.is_empty() {
+                                                                        amt.push('0');
+                                                                    }
+                                                                    amt.push('.');
+                                                                }
+                                                            });
                                                         } else {
                                                             set_payment_amount.update(|amt| amt.push_str(&val_clone));
                                                         }
@@ -829,7 +845,11 @@ pub fn SalePage() -> impl IntoView {
                             </div>
 
                             <div class="action-buttons">
-                                <button class="action-button cancel" on:click=move |_| confirm_cancel_sale(current_transaction.get().unwrap_or_default())>{move || i18n.get().t("sale.cancel")}</button>
+                                <button class="action-button cancel" on:click=move |_| {
+                                    if let Some(id) = current_transaction.get() {
+                                        confirm_cancel_sale(id);
+                                    }
+                                }>{move || i18n.get().t("sale.cancel")}</button>
                                 <button class="action-button pause" on:click=pause_sale>{move || i18n.get().t("sale.back")}</button>
                                 <button class="action-button sale" on:click=checkout>{move || i18n.get().t("sale.checkout")}</button>
                             </div>

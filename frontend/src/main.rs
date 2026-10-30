@@ -397,22 +397,13 @@ async fn sale_ws_handler(
 
 #[cfg(feature = "ssr")]
 async fn validate_printer_passphrase(db: &sqlx::SqlitePool, passphrase: &str) -> bool {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(passphrase.as_bytes());
-    let hash = hasher.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write;
-        let _ = write!(s, "{:02x}", b);
-        s
-    });
-
     let stored: Option<String> =
         sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_passphrase'")
             .fetch_optional(db)
             .await
             .unwrap_or(None);
 
-    stored.is_some_and(|s| s == hash)
+    stored.is_some_and(|s| rustpos::server_fns::verify_pin(passphrase, &s))
 }
 
 #[cfg(feature = "ssr")]

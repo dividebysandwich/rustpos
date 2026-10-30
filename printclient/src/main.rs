@@ -118,8 +118,8 @@ async fn connect_and_run(
                         job.items.len(),
                         job.items
                             .iter()
-                            .map(|(_, q, p)| *q as f32 * p)
-                            .sum::<f32>()
+                            .map(|(_, q, p)| *q as f64 * p)
+                            .sum::<f64>()
                     );
                     let logo_ref = logo_path.clone();
                     let result =

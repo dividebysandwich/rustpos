@@ -139,9 +139,9 @@ pub fn print_sales_report(
     printer: &mut Printer,
     period: &str,
     currency: &str,
-    items: Vec<(String, u32, f32)>,
+    items: Vec<(String, u32, f64)>,
     total_items_sold: u32,
-    total_revenue: f32,
+    total_revenue: f64,
     datetime: DateTime<Local>,
     logo_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -191,9 +191,9 @@ pub fn print_sales_report(
 
 pub fn print_receipt(
     printer: &mut Printer,
-    items: Vec<(String, u32, f32)>,
-    paid_amount: f32,
-    change: f32,
+    items: Vec<(String, u32, f64)>,
+    paid_amount: f64,
+    change: f64,
     datetime: DateTime<Local>,
     logo_path: Option<&str>,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -214,11 +214,11 @@ pub fn print_receipt(
     printer.text("------------------------------------------------\n")?;
 
     printer.align(Alignment::Left)?;
-    let mut total = 0.0;
+    let mut total = 0.0_f64;
     for (name, qty, price) in &items {
-        let line = format!("{:<20} {:>2} x {:>18.2}\n", name, qty, price);
+        let line = format!("{:<20} {:>2} x {:>18.2}\n", fit_left(name, 20), qty, price);
         printer.text(&line)?;
-        total += (*qty as f32) * price;
+        total += (*qty as f64) * price;
     }
 
     printer.align(Alignment::Center)?;
@@ -239,7 +239,7 @@ pub fn print_receipt(
     printer.align(Alignment::Center)?;
     printer.qr(|builder| {
         builder.size(200).text(&format!(
-            "{}|Total:{}|Given:{}|Change:{}",
+            "{}|Total:{:.2}|Given:{:.2}|Change:{:.2}",
             datetime.format("%Y-%m-%d %H:%M:%S"),
             total,
             paid_amount,

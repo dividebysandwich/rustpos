@@ -15,7 +15,7 @@ fn not_found(msg: &str) -> ServerFnError {
 }
 
 #[cfg(feature = "ssr")]
-fn hash_pin(pin: &str) -> String {
+fn hash_pin_raw(pin: &str) -> String {
     use sha2::{Sha256, Digest};
     let mut hasher = Sha256::new();
     hasher.update(pin.as_bytes());
@@ -24,6 +24,45 @@ fn hash_pin(pin: &str) -> String {
         let _ = write!(s, "{:02x}", b);
         s
     })
+}
+
+#[cfg(feature = "ssr")]
+fn hash_pin_with_salt(pin: &str, salt: &str) -> String {
+    use sha2::{Sha256, Digest};
+    let mut hasher = Sha256::new();
+    hasher.update(salt.as_bytes());
+    hasher.update(b":");
+    hasher.update(pin.as_bytes());
+    hasher.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
+        use std::fmt::Write;
+        let _ = write!(s, "{:02x}", b);
+        s
+    })
+}
+
+#[cfg(feature = "ssr")]
+fn hash_pin(pin: &str) -> String {
+    use rand::RngCore;
+    let mut salt_bytes = [0u8; 16];
+    rand::thread_rng().fill_bytes(&mut salt_bytes);
+    let mut salt = String::with_capacity(32);
+    for b in salt_bytes {
+        use std::fmt::Write;
+        let _ = write!(salt, "{:02x}", b);
+    }
+    let hash = hash_pin_with_salt(pin, &salt);
+    format!("$s256${}${}", salt, hash)
+}
+
+#[cfg(feature = "ssr")]
+pub fn verify_pin(pin: &str, stored_hash: &str) -> bool {
+    if let Some(rest) = stored_hash.strip_prefix("$s256$") {
+        if let Some((salt, expected_hash)) = rest.split_once('$') {
+            return hash_pin_with_salt(pin, salt) == expected_hash;
+        }
+    }
+    // Backward compatibility for existing unsalted SHA-256 hashes
+    hash_pin_raw(pin) == stored_hash
 }
 
 #[cfg(feature = "ssr")]
@@ -58,9 +97,23 @@ async fn get_authenticated_user(pool: &sqlx::SqlitePool) -> Result<Option<UserAc
 }
 
 #[cfg(feature = "ssr")]
+async fn require_authenticated(pool: &sqlx::SqlitePool) -> Result<UserAccount, ServerFnError> {
+    get_authenticated_user(pool).await?
+        .ok_or_else(|| not_found("Not authenticated"))
+}
+
+#[cfg(feature = "ssr")]
+async fn require_cashier_or_admin(pool: &sqlx::SqlitePool) -> Result<UserAccount, ServerFnError> {
+    let user = require_authenticated(pool).await?;
+    if user.role != "admin" && user.role != "cashier" {
+        return Err(not_found("Cashier or Admin access required"));
+    }
+    Ok(user)
+}
+
+#[cfg(feature = "ssr")]
 async fn require_admin(pool: &sqlx::SqlitePool) -> Result<UserAccount, ServerFnError> {
-    let user = get_authenticated_user(pool).await?
-        .ok_or_else(|| not_found("Not authenticated"))?;
+    let user = require_authenticated(pool).await?;
     if user.role != "admin" {
         return Err(not_found("Admin access required"));
     }
@@ -161,7 +214,7 @@ async fn generate_sales_report_db(
 
     let top_revenue_item = items
         .iter()
-        .max_by(|a, b| a.total_revenue.partial_cmp(&b.total_revenue).unwrap())
+        .max_by(|a, b| a.total_revenue.partial_cmp(&b.total_revenue).unwrap_or(std::cmp::Ordering::Equal))
         .map(|i| i.item_name.clone());
 
     Ok(SalesReport {
@@ -198,6 +251,11 @@ pub async fn create_category(
     main_course: Option<bool>,
 ) -> Result<Category, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(not_found("Category name must not be empty"));
+    }
     let id = Uuid::new_v4();
     let now = Utc::now();
     let main_course = main_course.unwrap_or(false);
@@ -229,6 +287,7 @@ pub async fn create_category(
 #[server]
 pub async fn move_category(id: Uuid, up: bool) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
 
     let current = sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ?")
         .bind(id)
@@ -298,6 +357,7 @@ pub async fn update_category(
     main_course: Option<bool>,
 ) -> Result<Category, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
     let mut category = sqlx::query_as::<_, Category>("SELECT * FROM categories WHERE id = ?")
         .bind(id)
         .fetch_optional(&pool)
@@ -327,6 +387,17 @@ pub async fn update_category(
 #[server]
 pub async fn delete_category(id: Uuid) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM items WHERE category_id = ?")
+        .bind(id)
+        .fetch_one(&pool)
+        .await
+        .map_err(db_err)?;
+    if count > 0 {
+        return Err(not_found("Cannot delete category containing items"));
+    }
+
     let result = sqlx::query("DELETE FROM categories WHERE id = ?")
         .bind(id)
         .execute(&pool)
@@ -524,6 +595,14 @@ pub async fn create_item(
     kitchen_item: Option<bool>,
 ) -> Result<Item, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+    let name = name.trim().to_string();
+    if name.is_empty() {
+        return Err(not_found("Item name must not be empty"));
+    }
+    if price < 0.0 {
+        return Err(not_found("Item price cannot be negative"));
+    }
     let id = Uuid::new_v4();
     let now = Utc::now();
     let in_stock = in_stock.unwrap_or(true);
@@ -563,6 +642,7 @@ pub async fn update_item(
     kitchen_item: Option<bool>,
 ) -> Result<Item, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
     let mut item = sqlx::query_as::<_, Item>("SELECT * FROM items WHERE id = ?")
         .bind(id)
         .fetch_optional(&pool)
@@ -572,7 +652,12 @@ pub async fn update_item(
 
     if let Some(n) = name { item.name = n; }
     if let Some(d) = description { item.description = Some(d); }
-    if let Some(p) = price { item.price = p; }
+    if let Some(p) = price {
+        if p < 0.0 {
+            return Err(not_found("Item price cannot be negative"));
+        }
+        item.price = p;
+    }
     if let Some(c) = category_id { item.category_id = c; }
     if let Some(s) = sku { item.sku = Some(s); }
     if let Some(s) = in_stock { item.in_stock = s; }
@@ -612,6 +697,16 @@ pub async fn update_item(
 #[server]
 pub async fn delete_item(id: Uuid) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
+
+    let image_path: Option<String> =
+        sqlx::query_scalar("SELECT image_path FROM items WHERE id = ?")
+            .bind(id)
+            .fetch_optional(&pool)
+            .await
+            .map_err(db_err)?
+            .flatten();
+
     let result = sqlx::query("DELETE FROM items WHERE id = ?")
         .bind(id)
         .execute(&pool)
@@ -620,6 +715,12 @@ pub async fn delete_item(id: Uuid) -> Result<(), ServerFnError> {
     if result.rows_affected() == 0 {
         return Err(not_found("Item not found"));
     }
+
+    if let Some(ref url_path) = image_path {
+        let fs_path = format!("data{}", url_path);
+        let _ = std::fs::remove_file(&fs_path);
+    }
+
     Ok(())
 }
 
@@ -631,6 +732,7 @@ pub async fn upload_item_image(
     image_data: String,
 ) -> Result<String, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
 
     sqlx::query("SELECT id FROM items WHERE id = ?")
         .bind(item_id)
@@ -677,6 +779,7 @@ pub async fn upload_item_image(
 #[server]
 pub async fn remove_item_image(item_id: Uuid) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_admin(&pool).await?;
 
     let image_path: Option<String> =
         sqlx::query_scalar("SELECT image_path FROM items WHERE id = ?")
@@ -703,29 +806,10 @@ pub async fn remove_item_image(item_id: Uuid) -> Result<(), ServerFnError> {
 
 #[cfg(feature = "ssr")]
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    use std::collections::HashMap;
-    let table: HashMap<u8, u8> = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-        .iter()
-        .enumerate()
-        .map(|(i, &c)| (c, i as u8))
-        .collect();
-
-    let input: Vec<u8> = input.bytes().filter(|&b| b != b'\n' && b != b'\r' && b != b' ').collect();
-    let mut out = Vec::with_capacity(input.len() * 3 / 4);
-
-    for chunk in input.chunks(4) {
-        let mut buf = [0u8; 4];
-        let mut len = 0;
-        for (i, &b) in chunk.iter().enumerate() {
-            if b == b'=' { break; }
-            buf[i] = *table.get(&b).ok_or_else(|| format!("Invalid base64 char: {}", b as char))?;
-            len = i + 1;
-        }
-        if len >= 2 { out.push((buf[0] << 2) | (buf[1] >> 4)); }
-        if len >= 3 { out.push((buf[1] << 4) | (buf[2] >> 2)); }
-        if len >= 4 { out.push((buf[2] << 6) | buf[3]); }
-    }
-    Ok(out)
+    use base64::Engine;
+    base64::engine::general_purpose::STANDARD
+        .decode(input.trim())
+        .map_err(|e| e.to_string())
 }
 
 // ---- Transaction Server Functions ----
@@ -787,6 +871,7 @@ pub async fn create_transaction(
     customer_name: Option<String>,
 ) -> Result<Transaction, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
     let id = Uuid::new_v4();
     let now = Utc::now();
     let transaction = sqlx::query_as::<_, Transaction>(
@@ -816,6 +901,7 @@ pub async fn update_transaction_details(
     customer_group_id: Option<Uuid>,
 ) -> Result<Transaction, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
     sqlx::query_as::<_, Transaction>(
         "SELECT * FROM transactions WHERE id = ? AND status = 'open'",
     )
@@ -845,6 +931,7 @@ pub async fn add_item_to_transaction(
     quantity: i32,
 ) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
 
     sqlx::query_as::<_, Transaction>(
         "SELECT * FROM transactions WHERE id = ? AND status = 'open'",
@@ -955,6 +1042,7 @@ pub async fn remove_item_from_transaction(
     item_id: Uuid,
 ) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
 
     sqlx::query_as::<_, Transaction>(
         "SELECT * FROM transactions WHERE id = ? AND status = 'open'",
@@ -1027,6 +1115,7 @@ pub async fn close_transaction(
     use crate::printer::{find_printer, open_cash_drawer, print_receipt};
 
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
 
     let transaction = sqlx::query_as::<_, Transaction>(
         "SELECT * FROM transactions WHERE id = ? AND status = 'open'",
@@ -1037,11 +1126,11 @@ pub async fn close_transaction(
     .map_err(db_err)?
     .ok_or_else(|| not_found("Transaction not found or not open"))?;
 
-    if paid_amount < transaction.total {
+    if paid_amount < transaction.total - 0.001 {
         return Err(not_found("Insufficient payment amount"));
     }
 
-    let change = paid_amount - transaction.total;
+    let change = (paid_amount - transaction.total).max(0.0);
     let now = Utc::now();
 
     // Decrement stock quantities for tracked items
@@ -1057,6 +1146,8 @@ pub async fn close_transaction(
     .await
     .map_err(db_err)?;
 
+    let mut tx = pool.begin().await.map_err(db_err)?;
+
     for ti in &trans_items {
         // Decrement stock_quantity for tracked items
         sqlx::query(
@@ -1065,7 +1156,7 @@ pub async fn close_transaction(
         )
         .bind(ti.quantity)
         .bind(ti.item_id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await
         .map_err(db_err)?;
 
@@ -1074,14 +1165,14 @@ pub async fn close_transaction(
             "UPDATE items SET in_stock = 0 WHERE id = ? AND stock_quantity IS NOT NULL AND stock_quantity <= 0",
         )
         .bind(ti.item_id)
-        .execute(&pool)
+        .execute(&mut *tx)
         .await
         .map_err(db_err)?;
 
         // Create kitchen order items for kitchen items
         let is_kitchen: bool = sqlx::query_scalar("SELECT kitchen_item FROM items WHERE id = ?")
             .bind(ti.item_id)
-            .fetch_one(&pool)
+            .fetch_one(&mut *tx)
             .await
             .map_err(db_err)?;
 
@@ -1099,7 +1190,7 @@ pub async fn close_transaction(
             .bind(ti.quantity)
             .bind(&transaction.customer_name)
             .bind(now)
-            .execute(&pool)
+            .execute(&mut *tx)
             .await
             .map_err(db_err)?;
         }
@@ -1114,15 +1205,17 @@ pub async fn close_transaction(
     .bind(now)
     .bind(now)
     .bind(id)
-    .fetch_one(&pool)
+    .fetch_one(&mut *tx)
     .await
     .map_err(db_err)?;
 
+    tx.commit().await.map_err(db_err)?;
+
     // Print receipt
     if transaction.status == "closed" {
-        let receipt_items: Vec<(String, u32, f32)> = trans_items
+        let receipt_items: Vec<(String, u32, f64)> = trans_items
             .into_iter()
-            .map(|it| (it.item_name, it.quantity as u32, it.unit_price as f32))
+            .map(|it| (it.item_name, it.quantity as u32, it.unit_price))
             .collect();
 
         let local_now = chrono::Local::now();
@@ -1133,8 +1226,8 @@ pub async fn close_transaction(
         >>() {
             let job = rustpos_common::protocol::PrintReceiptJob {
                 items: receipt_items.clone(),
-                paid_amount: paid_amount as f32,
-                change: change as f32,
+                paid_amount,
+                change,
                 datetime: local_now.format("%Y-%m-%d %H:%M:%S").to_string(),
             };
             let _ = printer_tx.send(job);
@@ -1153,8 +1246,8 @@ pub async fn close_transaction(
                     let _ = print_receipt(
                         &mut printer,
                         receipt_items,
-                        paid_amount as f32,
-                        change as f32,
+                        paid_amount,
+                        change,
                         local_now,
                         Some("data/logo_receipt.png"),
                     );
@@ -1187,6 +1280,7 @@ pub async fn close_transaction(
 #[server]
 pub async fn cancel_transaction(id: Uuid) -> Result<Transaction, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    require_cashier_or_admin(&pool).await?;
     let transaction = sqlx::query_as::<_, Transaction>(
         "UPDATE transactions SET status = 'cancelled', updated_at = ?
          WHERE id = ? AND status = 'open' RETURNING *",
@@ -1906,9 +2000,18 @@ pub async fn login(user_id: Uuid, pin: String) -> Result<UserInfo, ServerFnError
         .map_err(db_err)?
         .ok_or_else(|| not_found("User not found"))?;
 
-    let pin_hash = hash_pin(&pin);
-    if user.pin_hash != pin_hash {
+    if !verify_pin(&pin, &user.pin_hash) {
         return Err(not_found("Invalid PIN"));
+    }
+
+    // Automatically rehash and upgrade legacy unsalted PINs to salted format on successful login
+    if !user.pin_hash.starts_with("$s256$") {
+        let new_hash = hash_pin(&pin);
+        let _ = sqlx::query("UPDATE users SET pin_hash = ? WHERE id = ?")
+            .bind(&new_hash)
+            .bind(user.id)
+            .execute(&pool)
+            .await;
     }
 
     let session_id = Uuid::new_v4();
@@ -2128,6 +2231,13 @@ pub async fn get_config_language() -> Result<Option<String>, ServerFnError> {
 #[server]
 pub async fn set_config_language(lang: String) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&pool)
+        .await
+        .map_err(db_err)?;
+    if user_count > 0 {
+        require_admin(&pool).await?;
+    }
     sqlx::query(
         "INSERT INTO config (key, value) VALUES ('language', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
@@ -2239,6 +2349,13 @@ pub async fn get_config_currency() -> Result<Option<String>, ServerFnError> {
 #[server]
 pub async fn set_config_currency(currency: String) -> Result<(), ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(&pool)
+        .await
+        .map_err(db_err)?;
+    if user_count > 0 {
+        require_admin(&pool).await?;
+    }
     sqlx::query(
         "INSERT INTO config (key, value) VALUES ('currency', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     )
@@ -2394,13 +2511,13 @@ pub async fn print_sales_report(
             .flatten()
             .unwrap_or_default();
 
-    let items: Vec<(String, u32, f32)> = report
+    let items: Vec<(String, u32, f64)> = report
         .items
         .iter()
-        .map(|i| (i.item_name.clone(), i.quantity_sold as u32, i.total_revenue as f32))
+        .map(|i| (i.item_name.clone(), i.quantity_sold as u32, i.total_revenue))
         .collect();
     let total_items_sold = report.summary.total_items_sold as u32;
-    let total_revenue = report.summary.total_revenue as f32;
+    let total_revenue = report.summary.total_revenue;
     let period = format!(
         "{} to {}",
         start_date.format("%Y-%m-%d"),
