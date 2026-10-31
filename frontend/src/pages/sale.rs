@@ -29,11 +29,18 @@ fn setup_tick(set_tick: WriteSignal<u32>) {
     let cb = Closure::wrap(Box::new(move || {
         set_tick.update(|v| *v = v.wrapping_add(1));
     }) as Box<dyn Fn()>);
-    let _ = web_sys::window().unwrap()
-        .set_interval_with_callback_and_timeout_and_arguments_0(
+    if let Some(win) = web_sys::window() {
+        if let Ok(id) = win.set_interval_with_callback_and_timeout_and_arguments_0(
             cb.as_ref().unchecked_ref(), 1000,
-        );
-    cb.forget();
+        ) {
+            cb.forget();
+            on_cleanup(move || {
+                if let Some(w) = web_sys::window() {
+                    w.clear_interval_with_handle(id);
+                }
+            });
+        }
+    }
 }
 
 #[cfg(target_arch = "wasm32")]

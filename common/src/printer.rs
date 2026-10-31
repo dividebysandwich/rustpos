@@ -61,7 +61,17 @@ fn select_codepage(printer: &mut Printer) -> Result<(), Box<dyn std::error::Erro
 }
 
 pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
-    // Try Linux-style device paths first
+    // Check explicit printer path from environment variable first
+    if let Ok(explicit) = std::env::var("RUSTPOS_PRINTER_PATH") {
+        if !explicit.trim().is_empty() {
+            println!("Trying explicit printer path: {}", explicit);
+            if let Ok(printer) = try_printer_on_port(&explicit) {
+                return Ok((explicit, printer));
+            }
+        }
+    }
+
+    // Try Unix/Linux and macOS device paths
     #[cfg(not(target_os = "windows"))]
     {
         let candidates = vec![
@@ -69,15 +79,21 @@ pub fn find_printer() -> Result<(String, Printer), Box<dyn std::error::Error>> {
             "/dev/ttyACM*",
             "/dev/usb/lp*",
             "/dev/serial/by-id/*",
+            "/dev/cu.usb*",
+            "/dev/tty.usb*",
+            "/dev/cu.wch*",
+            "/dev/cu.SLAB*",
         ];
 
         for pattern in candidates {
-            for entry in glob(pattern)? {
-                if let Ok(path) = entry {
-                    let path_str = path.display().to_string();
-                    println!("Trying on port: {}", path_str);
-                    if let Ok(printer) = try_printer_on_port(&path_str) {
-                        return Ok((path_str, printer));
+            if let Ok(paths) = glob(pattern) {
+                for entry in paths {
+                    if let Ok(path) = entry {
+                        let path_str = path.display().to_string();
+                        println!("Trying on port: {}", path_str);
+                        if let Ok(printer) = try_printer_on_port(&path_str) {
+                            return Ok((path_str, printer));
+                        }
                     }
                 }
             }

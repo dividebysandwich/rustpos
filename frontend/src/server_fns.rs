@@ -121,6 +121,27 @@ async fn require_admin(pool: &sqlx::SqlitePool) -> Result<UserAccount, ServerFnE
 }
 
 #[cfg(feature = "ssr")]
+async fn log_audit(
+    pool: &sqlx::SqlitePool,
+    user_id: Option<Uuid>,
+    action: &str,
+    details: Option<&str>,
+) {
+    let id = Uuid::new_v4();
+    let now = Utc::now();
+    let _ = sqlx::query(
+        "INSERT INTO audit_logs (id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(action)
+    .bind(details)
+    .bind(now)
+    .execute(pool)
+    .await;
+}
+
+#[cfg(feature = "ssr")]
 async fn update_transaction_total_db(
     pool: &sqlx::SqlitePool,
     transaction_id: Uuid,
@@ -1115,7 +1136,7 @@ pub async fn close_transaction(
     use crate::printer::{find_printer, open_cash_drawer, print_receipt};
 
     let pool = expect_context::<sqlx::SqlitePool>();
-    require_cashier_or_admin(&pool).await?;
+    let auth_user = require_cashier_or_admin(&pool).await?;
 
     let transaction = sqlx::query_as::<_, Transaction>(
         "SELECT * FROM transactions WHERE id = ? AND status = 'open'",
@@ -1271,6 +1292,17 @@ pub async fn close_transaction(
         let _ = sb.0.send(format!("closed:{}", id));
     }
 
+    log_audit(
+        &pool,
+        Some(auth_user.id),
+        "close_transaction",
+        Some(&format!(
+            "id={}, total={:.2}, paid={:.2}, change={:.2}",
+            id, transaction.total, paid_amount, change
+        )),
+    )
+    .await;
+
     Ok(CloseTransactionResponse {
         transaction,
         change_amount: change,
@@ -1280,7 +1312,7 @@ pub async fn close_transaction(
 #[server]
 pub async fn cancel_transaction(id: Uuid) -> Result<Transaction, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    require_cashier_or_admin(&pool).await?;
+    let auth_user = require_cashier_or_admin(&pool).await?;
     let transaction = sqlx::query_as::<_, Transaction>(
         "UPDATE transactions SET status = 'cancelled', updated_at = ?
          WHERE id = ? AND status = 'open' RETURNING *",
@@ -1300,6 +1332,14 @@ pub async fn cancel_transaction(id: Uuid) -> Result<Transaction, ServerFnError> 
     if let Some(sb) = use_context::<crate::SaleBroadcast>() {
         let _ = sb.0.send(format!("cancelled:{}", id));
     }
+
+    log_audit(
+        &pool,
+        Some(auth_user.id),
+        "cancel_transaction",
+        Some(&format!("id={}, total={:.2}", id, transaction.total)),
+    )
+    .await;
 
     Ok(transaction)
 }
@@ -2000,9 +2040,69 @@ pub async fn login(user_id: Uuid, pin: String) -> Result<UserInfo, ServerFnError
         .map_err(db_err)?
         .ok_or_else(|| not_found("User not found"))?;
 
-    if !verify_pin(&pin, &user.pin_hash) {
-        return Err(not_found("Invalid PIN"));
+    // Check if account is locked out from too many failed PIN attempts
+    #[derive(sqlx::FromRow)]
+    struct AttemptRecord {
+        failed_count: i64,
+        locked_until: Option<DateTime<Utc>>,
     }
+
+    let attempt = sqlx::query_as::<_, AttemptRecord>(
+        "SELECT failed_count, locked_until FROM login_attempts WHERE user_id = ?",
+    )
+    .bind(user.id)
+    .fetch_optional(&pool)
+    .await
+    .map_err(db_err)?;
+
+    let now = Utc::now();
+    if let Some(ref att) = attempt {
+        if let Some(locked_until) = att.locked_until {
+            if locked_until > now {
+                let remaining_secs = (locked_until - now).num_seconds().max(1);
+                return Err(not_found(&format!(
+                    "Account locked due to too many failed attempts. Try again in {}s",
+                    remaining_secs
+                )));
+            }
+        }
+    }
+
+    if !verify_pin(&pin, &user.pin_hash) {
+        let new_failed = attempt.map(|a| a.failed_count).unwrap_or(0) + 1;
+        let locked_until = if new_failed >= 5 {
+            Some(now + chrono::Duration::minutes(5))
+        } else {
+            None
+        };
+        let _ = sqlx::query(
+            "INSERT INTO login_attempts (user_id, failed_count, locked_until)
+             VALUES (?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET failed_count = excluded.failed_count, locked_until = excluded.locked_until",
+        )
+        .bind(user.id)
+        .bind(new_failed)
+        .bind(locked_until)
+        .execute(&pool)
+        .await;
+
+        log_audit(&pool, Some(user.id), "login_failed", Some(&format!("Failed attempt #{}", new_failed))).await;
+
+        if new_failed >= 5 {
+            return Err(not_found("Account locked for 5 minutes due to 5 consecutive failed PIN attempts"));
+        } else {
+            let left = 5 - new_failed;
+            return Err(not_found(&format!("Invalid PIN. {} attempts remaining before lockout.", left)));
+        }
+    }
+
+    // Reset failed login attempts on successful authentication
+    let _ = sqlx::query("DELETE FROM login_attempts WHERE user_id = ?")
+        .bind(user.id)
+        .execute(&pool)
+        .await;
+
+    log_audit(&pool, Some(user.id), "login_success", None).await;
 
     // Automatically rehash and upgrade legacy unsalted PINs to salted format on successful login
     if !user.pin_hash.starts_with("$s256$") {
@@ -2103,7 +2203,7 @@ pub async fn create_user_account(
     role: String,
 ) -> Result<UserInfo, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    require_admin(&pool).await?;
+    let admin = require_admin(&pool).await?;
 
     if !["admin", "cashier", "cook"].contains(&role.as_str()) {
         return Err(not_found("Invalid role"));
@@ -2129,6 +2229,14 @@ pub async fn create_user_account(
     .await
     .map_err(db_err)?;
 
+    log_audit(
+        &pool,
+        Some(admin.id),
+        "create_user",
+        Some(&format!("created_user_id={}, username={}, role={}", user.id, user.username, user.role)),
+    )
+    .await;
+
     Ok(UserInfo {
         id: user.id,
         username: user.username,
@@ -2144,7 +2252,7 @@ pub async fn update_user_account(
     role: Option<String>,
 ) -> Result<UserInfo, ServerFnError> {
     let pool = expect_context::<sqlx::SqlitePool>();
-    require_admin(&pool).await?;
+    let admin = require_admin(&pool).await?;
 
     let mut user = sqlx::query_as::<_, UserAccount>("SELECT * FROM users WHERE id = ?")
         .bind(id)
@@ -2182,6 +2290,14 @@ pub async fn update_user_account(
     .await
     .map_err(db_err)?;
 
+    log_audit(
+        &pool,
+        Some(admin.id),
+        "update_user",
+        Some(&format!("updated_user_id={}, username={}, role={}", updated.id, updated.username, updated.role)),
+    )
+    .await;
+
     Ok(UserInfo {
         id: updated.id,
         username: updated.username,
@@ -2212,6 +2328,15 @@ pub async fn delete_user_account(id: Uuid) -> Result<(), ServerFnError> {
     if result.rows_affected() == 0 {
         return Err(not_found("User not found"));
     }
+
+    log_audit(
+        &pool,
+        Some(admin.id),
+        "delete_user",
+        Some(&format!("deleted_user_id={}", id)),
+    )
+    .await;
+
     Ok(())
 }
 
@@ -2574,4 +2699,34 @@ pub async fn get_system_ip_addresses() -> Result<Vec<String>, ServerFnError> {
     // IPv4 first (is_ipv6 == false), then by string for stable ordering.
     addrs.sort();
     Ok(addrs.into_iter().map(|(_, s)| s).collect())
+}
+
+/// Online hot backup of the SQLite database using SQLite's native `VACUUM INTO`.
+/// Performs an atomic snapshot without locking writes or requiring server downtime.
+#[server]
+pub async fn backup_database() -> Result<String, ServerFnError> {
+    let pool = expect_context::<sqlx::SqlitePool>();
+    let admin = require_admin(&pool).await?;
+
+    let _ = std::fs::create_dir_all("data/backups");
+    let timestamp = Utc::now().format("%Y%m%d_%H%M%S");
+    let unique_suffix = &Uuid::new_v4().to_string()[..8];
+    let filename = format!("backup_pos_{}_{}.db", timestamp, unique_suffix);
+    let target_path = format!("data/backups/{}", filename);
+
+    // SQLite VACUUM INTO performs a live, consistent snapshot of the active DB
+    sqlx::query(&format!("VACUUM INTO '{}'", target_path.replace('\'', "''")))
+        .execute(&pool)
+        .await
+        .map_err(db_err)?;
+
+    log_audit(
+        &pool,
+        Some(admin.id),
+        "backup_database",
+        Some(&filename),
+    )
+    .await;
+
+    Ok(target_path)
 }

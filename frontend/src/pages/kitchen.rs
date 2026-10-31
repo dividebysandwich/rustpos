@@ -17,7 +17,7 @@ fn setup_kitchen_ws(set_reload: WriteSignal<u32>) {
         let host = loc.host().unwrap_or_default();
         let url = format!("{}//{}/ws/kitchen", proto, host);
 
-        let ws = web_sys::WebSocket::new(&url).unwrap();
+        let Ok(ws) = web_sys::WebSocket::new(&url) else { return };
 
         let sr = set_reload;
         let onmessage = Closure::wrap(Box::new(move |_: web_sys::MessageEvent| {
@@ -31,10 +31,11 @@ fn setup_kitchen_ws(set_reload: WriteSignal<u32>) {
             let cb = Closure::wrap(Box::new(move || {
                 connect(sr2);
             }) as Box<dyn Fn()>);
-            let _ = web_sys::window().unwrap()
-                .set_timeout_with_callback_and_timeout_and_arguments_0(
+            if let Some(win) = web_sys::window() {
+                let _ = win.set_timeout_with_callback_and_timeout_and_arguments_0(
                     cb.as_ref().unchecked_ref(), 2000,
                 );
+            }
             cb.forget();
         }) as Box<dyn Fn(_)>);
         ws.set_onclose(Some(onclose.as_ref().unchecked_ref()));
@@ -53,11 +54,18 @@ fn setup_tick(set_tick: WriteSignal<u32>) {
     let cb = Closure::wrap(Box::new(move || {
         set_tick.update(|v| *v = v.wrapping_add(1));
     }) as Box<dyn Fn()>);
-    let _ = web_sys::window().unwrap()
-        .set_interval_with_callback_and_timeout_and_arguments_0(
+    if let Some(win) = web_sys::window() {
+        if let Ok(id) = win.set_interval_with_callback_and_timeout_and_arguments_0(
             cb.as_ref().unchecked_ref(), 1000,
-        );
-    cb.forget();
+        ) {
+            cb.forget();
+            on_cleanup(move || {
+                if let Some(w) = web_sys::window() {
+                    w.clear_interval_with_handle(id);
+                }
+            });
+        }
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
