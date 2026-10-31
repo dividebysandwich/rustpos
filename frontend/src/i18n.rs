@@ -27,6 +27,7 @@ impl I18n {
             "yo" => include_str!("../locales/yo.json"),
             "af" => include_str!("../locales/af.json"),
             "ar" => include_str!("../locales/ar.json"),
+            "bn" => include_str!("../locales/bn.json"),
             _ => include_str!("../locales/en.json"),
         };
         let translations: HashMap<String, String> =
@@ -73,6 +74,7 @@ pub fn available_currencies() -> Vec<(&'static str, &'static str)> {
         ("GH\u{20b5}", "GHS GH\u{20b5}"), // Ghanaian Cedi
         ("CFA", "XOF CFA"),            // West African CFA Franc
         ("E\u{00a3}", "EGP E\u{00a3}"), // Egyptian Pound
+        ("\u{09f3}", "BDT \u{09f3}"),   // Bangladeshi Taka (৳)
     ]
 }
 
@@ -97,6 +99,7 @@ pub fn default_currency_for_language(lang: &str) -> &'static str {
         "yo" => "\u{20a6}",
         "af" => "R",
         "ar" => "E\u{00a3}",
+        "bn" => "\u{09f3}",
         _ => "\u{20ac}",
     }
 }
@@ -121,5 +124,6 @@ pub fn available_languages() -> Vec<(&'static str, &'static str)> {
         ("yo", "Yor\u{f9}b\u{e1}"),
         ("af", "Afrikaans"),
         ("ar", "\u{627}\u{644}\u{639}\u{631}\u{628}\u{64a}\u{629}"),
+        ("bn", "\u{09ac}\u{09be}\u{0982}\u{09b2}\u{09be}"), // বাংলা
     ]
 }
