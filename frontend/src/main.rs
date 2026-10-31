@@ -31,8 +31,19 @@ async fn main() {
     // Create data directories if they don't exist
     std::fs::create_dir_all("data/item_images").ok();
 
-    // Create database connection with auto-create
-    let db = SqlitePool::connect("sqlite:data/pos.db?mode=rwc")
+    // Create hardened database connection with WAL mode, timeouts, and foreign keys
+    use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqliteSynchronous};
+    use std::time::Duration;
+
+    let db_options = SqliteConnectOptions::new()
+        .filename("data/pos.db")
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal)
+        .synchronous(SqliteSynchronous::Normal)
+        .busy_timeout(Duration::from_secs(5))
+        .foreign_keys(true);
+
+    let db = SqlitePool::connect_with(db_options)
         .await
         .expect("Failed to connect to database");
 
@@ -210,6 +221,32 @@ async fn main() {
         }
     }
 
+    // Audit logging table
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS audit_logs (
+            id TEXT PRIMARY KEY,
+            user_id TEXT,
+            action TEXT NOT NULL,
+            details TEXT,
+            created_at TEXT NOT NULL
+        )"#,
+    )
+    .execute(&db)
+    .await
+    .ok();
+
+    // Login rate limiting table
+    sqlx::query(
+        r#"CREATE TABLE IF NOT EXISTS login_attempts (
+            user_id TEXT PRIMARY KEY,
+            failed_count INTEGER NOT NULL DEFAULT 0,
+            locked_until TEXT
+        )"#,
+    )
+    .execute(&db)
+    .await
+    .ok();
+
     // Create indexes
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id)")
         .execute(&db)
@@ -237,8 +274,34 @@ async fn main() {
     .execute(&db)
     .await
     .ok();
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)",
+    )
+    .execute(&db)
+    .await
+    .ok();
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)",
+    )
+    .execute(&db)
+    .await
+    .ok();
 
     println!("Database initialized successfully!");
+
+    // Background worker: Periodically purge expired sessions every hour
+    tokio::spawn({
+        let db = db.clone();
+        async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+                let _ = sqlx::query("DELETE FROM sessions WHERE expires_at < ?")
+                    .bind(chrono::Utc::now())
+                    .execute(&db)
+                    .await;
+            }
+        }
+    });
 
     let conf = get_configuration(None).expect("Failed to get Leptos configuration");
     let mut leptos_options = conf.leptos_options;
@@ -246,13 +309,14 @@ async fn main() {
     leptos_options.site_root = "site".into();
     let routes = generate_route_list(App);
 
-    let (kitchen_tx, _) = broadcast::channel::<()>(16);
-    let (printer_tx, _) = broadcast::channel::<rustpos_common::protocol::PrintReceiptJob>(16);
-    let (display_tx, _) = broadcast::channel::<String>(16);
-    let (sale_tx, _) = broadcast::channel::<String>(16);
+    let (kitchen_tx, _) = broadcast::channel::<()>(128);
+    let (printer_tx, _) = broadcast::channel::<rustpos_common::protocol::PrintReceiptJob>(128);
+    let (display_tx, _) = broadcast::channel::<String>(128);
+    let (sale_tx, _) = broadcast::channel::<String>(128);
     let sale_broadcast = SaleBroadcast(sale_tx);
 
     let app = Router::new()
+        .route("/healthz", axum::routing::get(healthz_handler))
         .route("/ws/kitchen", axum::routing::get(kitchen_ws_handler))
         .route("/ws/printer", axum::routing::get(printer_ws_handler))
         .route("/ws/display", axum::routing::get(display_ws_handler))
@@ -299,6 +363,29 @@ async fn main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+#[cfg(feature = "ssr")]
+async fn healthz_handler(
+    axum::Extension(db): axum::Extension<sqlx::sqlite::SqlitePool>,
+) -> impl axum::response::IntoResponse {
+    match sqlx::query("SELECT 1").execute(&db).await {
+        Ok(_) => (
+            axum::http::StatusCode::OK,
+            axum::Json(serde_json::json!({
+                "status": "ok",
+                "database": "connected",
+                "version": env!("CARGO_PKG_VERSION")
+            })),
+        ),
+        Err(e) => (
+            axum::http::StatusCode::SERVICE_UNAVAILABLE,
+            axum::Json(serde_json::json!({
+                "status": "error",
+                "database": e.to_string()
+            })),
+        ),
+    }
 }
 
 #[cfg(feature = "ssr")]
@@ -397,22 +484,13 @@ async fn sale_ws_handler(
 
 #[cfg(feature = "ssr")]
 async fn validate_printer_passphrase(db: &sqlx::SqlitePool, passphrase: &str) -> bool {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(passphrase.as_bytes());
-    let hash = hasher.finalize().iter().fold(String::with_capacity(64), |mut s, b| {
-        use std::fmt::Write;
-        let _ = write!(s, "{:02x}", b);
-        s
-    });
-
     let stored: Option<String> =
         sqlx::query_scalar("SELECT value FROM config WHERE key = 'printer_passphrase'")
             .fetch_optional(db)
             .await
             .unwrap_or(None);
 
-    stored.is_some_and(|s| s == hash)
+    stored.is_some_and(|s| rustpos::server_fns::verify_pin(passphrase, &s))
 }
 
 #[cfg(feature = "ssr")]
